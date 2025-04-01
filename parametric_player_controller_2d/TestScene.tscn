@@ -1,0 +1,45 @@
+[gd_scene load_steps=7 format=3 uid="uid://e8fh33bpu2o7"]
+
+[ext_resource type="PackedScene" uid="uid://ccd2oam5mf8u5" path="res://parametric_player_controller_2d/parametric_player_controller_2d.scn" id="1_rtm4w"]
+[ext_resource type="Script" uid="uid://k3rrvnuvbisk" path="res://parametric_player_controller_2d/movement_data.gd" id="2_6h6fy"]
+[ext_resource type="Texture2D" uid="uid://cytco0ictpgmt" path="res://icon.svg" id="3_0hlh3"]
+
+[sub_resource type="Resource" id="Resource_rtm4w"]
+script = ExtResource("2_6h6fy")
+velocity = 60.0
+acceleration_time = 0.13
+deceleration_time = 0.125
+metadata/_custom_type_script = "uid://k3rrvnuvbisk"
+
+[sub_resource type="Resource" id="Resource_juhqo"]
+script = ExtResource("2_6h6fy")
+velocity = 120.0
+acceleration_time = 0.13
+deceleration_time = 0.125
+metadata/_custom_type_script = "uid://k3rrvnuvbisk"
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_rtm4w"]
+size = Vector2(1000, 64)
+
+[node name="TestScene" type="Node2D"]
+
+[node name="Player" parent="." instance=ExtResource("1_rtm4w")]
+position = Vector2(549, 440)
+movement_types = Dictionary[StringName, ExtResource("2_6h6fy")]({
+&"running": SubResource("Resource_juhqo"),
+&"walking": SubResource("Resource_rtm4w")
+})
+
+[node name="Icon" type="Sprite2D" parent="Player"]
+position = Vector2(-4.23193e-06, -15)
+scale = Vector2(0.15625, 0.234375)
+texture = ExtResource("3_0hlh3")
+
+[node name="Ground" type="StaticBody2D" parent="."]
+position = Vector2(575, 500)
+
+[node name="Polygon2D" type="Polygon2D" parent="Ground"]
+polygon = PackedVector2Array(-500, -32, 500, -32, 500, 32, -500, 32)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Ground"]
+shape = SubResource("RectangleShape2D_rtm4w")
