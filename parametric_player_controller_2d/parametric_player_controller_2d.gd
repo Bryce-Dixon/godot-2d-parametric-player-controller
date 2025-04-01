@@ -21,70 +21,55 @@ var shape: CollisionShape2D:
   get:
     return shape.shape.height
 
-@export var movement_types: Dictionary[StringName, ParametricPlayerController2DMovementData] = {
-  &"walking": null
-}:
-  set(value):
-    for key: StringName in value.keys():
-      if key in movement_types and value[key] == null:
-        continue
-      elif key.strip_edges().is_empty():
-        continue
-      movement_types[key] = ParametricPlayerController2DMovementData.new() if value[key] == null else value[key]
-    for key: StringName in movement_types.keys():
-      if key not in value:
-        movement_types.erase(key)
-    if movement_types.size() == 0:
-      movement_types[&"walking"] = ParametricPlayerController2DMovementData.new()
-    if default_movement_type_name not in movement_types.keys():
-      default_movement_type_name = movement_types.keys().front()
-    notify_property_list_changed()
+@export var movement_data := ParametricPlayerController2DMovementData.new()
+var goal_horizontal_velocity: float
+## Can be overridden to specify custom acceleration behavior (eg: dashing)
+func _get_horizontal_acceleration() -> float:
+  if is_decelerating_horizontally():
+    if is_on_floor():
+      return movement_data.deceleration
+    return movement_data.deceleration * movement_data.aerial_deceleration_ratio
+  if is_on_floor():
+    return movement_data.acceleration
+  return movement_data.acceleration * movement_data.aerial_acceleration_ratio
 
-var default_movement_type_name: StringName:
-  set(value):
-    if value not in movement_types.keys():
-      push_warning("Attempting to set default_movement_type_name to an invalid value")
-      return
-    default_movement_type_name = value
-  get:
-    if default_movement_type_name not in movement_types.keys():
-      return &""
-    return default_movement_type_name
 
-@onready var current_movement_type_name: StringName = default_movement_type_name:
-  set(value):
-    if value not in movement_types.keys():
-      push_warning("Attempting to set current_movement_type_name to an invalid value")
-      return
-    current_movement_type_name = value
-  get:
-    if current_movement_type_name not in movement_types.keys():
-      return default_movement_type_name
-    return current_movement_type_name
-var current_movement_type: ParametricPlayerController2DMovementData:
-  get:
-    return movement_types.get(current_movement_type_name, movement_types.get(default_movement_type_name))
-  set(_value):
-    push_warning("current_movement_type is read-only")
+func is_accelerating_horizontally() -> bool:
+  return (
+    sign(velocity.x) == sign(goal_horizontal_velocity)
+    and absf(goal_horizontal_velocity) > 0.01
+    and absf(goal_horizontal_velocity) > absf(velocity.x)
+  )
 
+func is_decelerating_horizontally() -> bool:
+  return (
+    absf(goal_horizontal_velocity) < 0.01
+    or sign(velocity.x) != sign(goal_horizontal_velocity)
+    or absf(goal_horizontal_velocity) < absf(velocity.x)
+  )
+
+# Exported manually via _get_property_list
 var input_left_action_name := &"ui_left"
 var input_right_action_name := &"ui_right"
 var input_jump_action_name := &"ui_up"
 
-@export_group("Jumping", "jump_")
-## Height to reach after pressing [member input_jump_action_name] for one frame
-@export var jump_min_height := 40.0
-## Height to reach after holding [member input_jump_action_name] for as long as possible
-@export var jump_max_height := 40.0
+@export var jump_data := ParametricPlayerController2DJumpData.new()
+var jumping := false
+## Maximum falling speed
+@export var terminal_velocity := 120.0
+## Can be overridden to specify custom falling behavior (eg: fast-falling while holding down)
+func _get_terminal_velocity() -> float:
+  return terminal_velocity
+
+## Can be overridden to specify custom falling behavior (eg: fast-falling while holding down)
+func _get_gravity() -> float:
+  if not jumping and velocity.y < 0.0:
+    return jump_data.get_min_height_gravity()
+  return jump_data.get_max_height_gravity()
 
 func _get_property_list() -> Array[Dictionary]:
+  InputMap.load_from_project_settings()
   var property_list: Array[Dictionary] = [
-    {
-      name = &"default_movement_type_name",
-      type = TYPE_STRING,
-      hint = PROPERTY_HINT_ENUM,
-      hint_string = ",".join(movement_types.keys())
-    },
     {
       name = &"Inputs",
       type = TYPE_NIL,
@@ -119,11 +104,19 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
   if Engine.is_editor_hint():
     return
-  var goal_horizontal_velocity := Input.get_axis(input_left_action_name, input_right_action_name) * current_movement_type.velocity
+  goal_horizontal_velocity = Input.get_axis(input_left_action_name, input_right_action_name) * movement_data.velocity
   velocity.x = move_toward(
     velocity.x,
     goal_horizontal_velocity,
-    delta * (current_movement_type.deceleration if is_zero_approx(goal_horizontal_velocity) else current_movement_type.acceleration)
+    delta * _get_horizontal_acceleration()
   )
+  ## TODO: Input buffering and coyote time for jumping
+  if is_on_floor():
+    if Input.is_action_just_pressed(input_jump_action_name):
+      jumping = true
+      velocity.y = jump_data.get_velocity()
+  if jumping:
+    if not Input.is_action_pressed(input_jump_action_name) or velocity.y >= 0.0:
+      jumping = false
+  velocity.y = minf(velocity.y + delta * _get_gravity(), _get_terminal_velocity())
   move_and_slide()
-  prints("velocity:", velocity)
