@@ -1,8 +1,9 @@
-[gd_scene load_steps=10 format=3 uid="uid://e8fh33bpu2o7"]
+[gd_scene load_steps=13 format=3 uid="uid://e8fh33bpu2o7"]
 
 [ext_resource type="PackedScene" uid="uid://ccd2oam5mf8u5" path="res://parametric_player_controller_2d/parametric_player_controller_2d.scn" id="1_rtm4w"]
 [ext_resource type="Script" uid="uid://k3rrvnuvbisk" path="res://parametric_player_controller_2d/movement_data.gd" id="2_6h6fy"]
 [ext_resource type="Texture2D" uid="uid://cytco0ictpgmt" path="res://icon.svg" id="3_0hlh3"]
+[ext_resource type="Script" uid="uid://mpwnqgxga1qw" path="res://parametric_player_controller_2d/input_data.gd" id="3_4grcb"]
 [ext_resource type="Script" uid="uid://c7anptjcggiri" path="res://parametric_player_controller_2d/jump_data.gd" id="3_6h6fy"]
 [ext_resource type="PackedScene" uid="uid://bhyjowd0a1833" path="res://parametric_player_controller_2d/debug_window.scn" id="5_0hlh3"]
 
@@ -15,12 +16,22 @@ deceleration_time = 0.1
 aerial_deceleration_ratio = 0.75
 metadata/_custom_type_script = "uid://k3rrvnuvbisk"
 
+[sub_resource type="Resource" id="Resource_wgfen"]
+script = ExtResource("3_4grcb")
+action_name = &"player_dash"
+buffer_window = 4
+metadata/_custom_type_script = "uid://mpwnqgxga1qw"
+
 [sub_resource type="Resource" id="Resource_6h6fy"]
 script = ExtResource("3_6h6fy")
 min_height = 20.0
 max_height = 120.0
 seconds_to_max_height = 0.5
 metadata/_custom_type_script = "uid://c7anptjcggiri"
+
+[sub_resource type="Curve" id="Curve_0hlh3"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.0967136), 0.0, 0.0, 0, 0]
+point_count = 2
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_rtm4w"]
 size = Vector2(1000, 64)
@@ -33,13 +44,23 @@ size = Vector2(200, 64)
 [node name="Player" parent="." instance=ExtResource("1_rtm4w")]
 position = Vector2(549, 440)
 movement_data = SubResource("Resource_0hlh3")
+input_actions = Dictionary[StringName, ExtResource("3_4grcb")]({
+&"dash": SubResource("Resource_wgfen")
+})
 jump_data = SubResource("Resource_6h6fy")
+aerial_jump_data = null
 terminal_velocity = 480.0
 
 [node name="Icon" type="Sprite2D" parent="Player"]
 position = Vector2(-4.23193e-06, -15)
-scale = Vector2(0.15625, 0.234375)
+scale = Vector2(0.156, 0.234)
 texture = ExtResource("3_0hlh3")
+
+[node name="Line2D" type="Line2D" parent="Player"]
+points = PackedVector2Array(5, -20, 15, -20)
+width_curve = SubResource("Curve_0hlh3")
+begin_cap_mode = 2
+end_cap_mode = 2
 
 [node name="Ground" type="StaticBody2D" parent="."]
 position = Vector2(575, 500)
@@ -67,3 +88,6 @@ zoom = Vector2(1.66, 1.66)
 
 [node name="ParametricPlayerControllerDebug" parent="CanvasLayer" instance=ExtResource("5_0hlh3")]
 offset_bottom = 323.0
+
+[connection signal="faced_left" from="Player" to="Player/Line2D" method="set" binds= [&"scale", Vector2(-1, 1)]]
+[connection signal="faced_right" from="Player" to="Player/Line2D" method="set" binds= [&"scale", Vector2(1, 1)]]
