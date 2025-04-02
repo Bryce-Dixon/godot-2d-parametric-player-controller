@@ -139,7 +139,7 @@ func _physics_process(delta: float) -> void:
   var was_falling := velocity.y > 0.0
   var current_terminal_velocity := _get_terminal_velocity()
   var was_at_terminal_velocity := velocity.y >= current_terminal_velocity
-  velocity.y = minf(velocity.y + delta * _get_gravity(), current_terminal_velocity)
+  velocity.y = move_toward(velocity.y, current_terminal_velocity, delta * _get_gravity())
   var old_collisions := _active_slide_collisions.duplicate()
   if move_and_slide():
     for i: int in range(get_slide_collision_count()):
