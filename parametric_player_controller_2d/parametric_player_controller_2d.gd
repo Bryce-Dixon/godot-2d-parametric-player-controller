@@ -119,7 +119,6 @@ func _physics_process(delta: float) -> void:
   update_inputs()
 
   input_coyote_time.push_state(is_on_floor())
-  print(String.num_uint64(input_coyote_time.get_masked_buffer(), 2))
   if input_coyote_time.is_high():
     if not _was_grounded:
       _was_grounded = true
