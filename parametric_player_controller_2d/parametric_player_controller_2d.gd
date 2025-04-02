@@ -74,6 +74,12 @@ func is_decelerating_horizontally() -> bool:
 @export var input_coyote_time := ParametricPlayerController2DBitBuffer.new()
 ## Arbitrary list of input actions which will be kept up to date and accessible in custom scripts
 @export var input_actions: Dictionary[StringName, ParametricPlayerController2dInputData]
+## If set to [code]true[/code], all inputs will be ignored and will retain their current buffer states.[br]
+## Should usually be the same as [member pause_physics]
+var pause_inputs := false
+## If set to [code]true[/code], the character will not move.[br]
+## Should usually be the same as [member pause_inputs]
+var pause_physics := false
 
 @export var jump_data := ParametricPlayerController2DJumpData.new()
 var jumping := false
@@ -100,63 +106,65 @@ func _physics_process(delta: float) -> void:
     return
   var was_accelerationg_horizontally := is_accelerating_horizontally()
   var was_decelerationg_horizontally := is_decelerating_horizontally()
-  goal_horizontal_velocity = Input.get_axis(input_left.action_name, input_right.action_name) * movement_data.velocity
-  if is_accelerating_horizontally() and not was_accelerationg_horizontally:
-    started_accelerating_horizontally.emit()
-  if is_decelerating_horizontally() and not was_decelerationg_horizontally:
-    started_decelerating_horizontally.emit()
-  var was_moving_horizontally := absf(velocity.x) > 0.1
-  velocity.x = move_toward(
-    velocity.x,
-    goal_horizontal_velocity,
-    delta * _get_horizontal_acceleration()
-  )
-  if was_moving_horizontally:
-    if absf(velocity.x) < 0.1:
-      stopped_moving_horizontally.emit()
-  elif absf(velocity.x) > 0.1:
-    started_moving_horizontally.emit()
-
-  update_inputs()
-
-  input_coyote_time.push_state(is_on_floor())
-  if input_coyote_time.is_high():
-    if not _was_grounded:
-      _was_grounded = true
-      landed.emit()
-  else:
-    if _was_grounded:
-      _was_grounded = false
+  if not pause_inputs:
+    goal_horizontal_velocity = Input.get_axis(input_left.action_name, input_right.action_name) * movement_data.velocity
+  if not pause_physics:
+    if is_accelerating_horizontally() and not was_accelerationg_horizontally:
+      started_accelerating_horizontally.emit()
+    if is_decelerating_horizontally() and not was_decelerationg_horizontally:
+      started_decelerating_horizontally.emit()
+    var was_moving_horizontally := absf(velocity.x) > 0.1
+    velocity.x = move_toward(
+      velocity.x,
+      goal_horizontal_velocity,
+      delta * _get_horizontal_acceleration()
+    )
+    if was_moving_horizontally:
+      if absf(velocity.x) < 0.1:
+        stopped_moving_horizontally.emit()
+    elif absf(velocity.x) > 0.1:
+      started_moving_horizontally.emit()
+  if not pause_inputs:
+    update_inputs()
+    input_coyote_time.push_state(is_on_floor())
+    if input_coyote_time.is_high():
+      if not _was_grounded:
+        _was_grounded = true
+        landed.emit()
+    else:
+      if _was_grounded:
+        _was_grounded = false
   if input_coyote_time.any_high():
-    if input_jump.was_pressed():
+    if not pause_inputs and input_jump.was_pressed():
       jumping = true
       velocity.y = jump_data.get_velocity()
       jumped.emit()
       input_coyote_time.fill_state(false)
   if jumping:
-    if not input_jump.is_down() or velocity.y >= 0.0:
+    if (not pause_inputs and not input_jump.is_down()) or velocity.y >= 0.0:
       jumping = false
-  var was_falling := velocity.y > 0.0
-  var current_terminal_velocity := _get_terminal_velocity()
-  var was_at_terminal_velocity := velocity.y >= current_terminal_velocity
-  velocity.y = move_toward(velocity.y, current_terminal_velocity, delta * _get_gravity())
-  var old_collisions := _active_slide_collisions.duplicate()
-  if move_and_slide():
-    for i: int in range(get_slide_collision_count()):
-      var collision := get_slide_collision(i)
-      var collider_id := collision.get_collider_id()
-      old_collisions.erase(collider_id)
-      if collider_id in _active_slide_collisions:
-        continue
-      _active_slide_collisions.push_back(collider_id)
-      collided.emit(collision)
-  for old_collision: int in old_collisions:
-    _active_slide_collisions.erase(old_collision)
+  if not pause_physics:
+    var was_falling := velocity.y > 0.0
+    var current_terminal_velocity := _get_terminal_velocity()
+    var was_at_terminal_velocity := velocity.y >= current_terminal_velocity
+    velocity.y = move_toward(velocity.y, current_terminal_velocity, delta * _get_gravity())
+    var old_collisions := _active_slide_collisions.duplicate()
+    if move_and_slide():
+      for i: int in range(get_slide_collision_count()):
+        var collision := get_slide_collision(i)
+        var collider_id := collision.get_collider_id()
+        old_collisions.erase(collider_id)
+        if collider_id in _active_slide_collisions:
+          continue
+        _active_slide_collisions.push_back(collider_id)
+        collided.emit(collision)
+    for old_collision: int in old_collisions:
+      _active_slide_collisions.erase(old_collision)
 
-  if not was_falling and velocity.y > 0.0:
-    started_falling.emit()
-  if not was_at_terminal_velocity and velocity.y >= current_terminal_velocity:
-    reached_terminal_velocity.emit()
+    if not was_falling and velocity.y > 0.0:
+      started_falling.emit()
+    if not was_at_terminal_velocity and velocity.y >= current_terminal_velocity:
+      reached_terminal_velocity.emit()
 
 func update_inputs() -> void:
   for input: ParametricPlayerController2dInputData in [input_left, input_right, input_jump]:
