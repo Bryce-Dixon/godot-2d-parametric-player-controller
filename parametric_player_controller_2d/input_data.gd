@@ -1,6 +1,8 @@
 @tool
+## Wrapper around [InputEventAction]s which provides easier inspector functionality and input buffering.
 class_name ParametricPlayerController2DInputData extends Resource
 
+## Name of the action to query within the [InputMap].
 var action_name := &""
 ## How many physics frames of input to allow the user to "buffer" inputs[br]
 ## For example, if set to [code]4[/code], the player could press [member action_name] up to [code]4[/code] frames before landing to jump on the first available frame.

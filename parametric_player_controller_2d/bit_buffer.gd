@@ -1,6 +1,7 @@
+## Contains a history of [bool] state values packed into a 64-bit integer
 class_name ParametricPlayerController2DBitBuffer extends Resource
 
-## How many frames to "buffer" a state
+## How many frames to "buffer" a state.
 @export_range(1, 64) var buffer_size := 4 :
   set(value):
     if value > 64:
@@ -14,20 +15,25 @@ class_name ParametricPlayerController2DBitBuffer extends Resource
 ## This is not limited to [member buffer_size]. Accessor methods within this class should be used to query data.
 var buffer: int = 0
 
+## Gets the size-masked buffer of states as a string of binary digits.
 func get_buffer_string() -> String:
   return String.num_uint64(get_masked_buffer(), 2).pad_zeros(buffer_size)
 
+## Gets a bitmask to apply to [member buffer] which will effectively shrink it to the requested [member buffer_size].
 func get_buffer_size_mask() -> int:
   return ~(~0 << buffer_size)
 
+## Gets [member buffer] shrunken to [member buffer_size] by applying the result of [method get_buffer_size_mask].
 func get_masked_buffer() -> int:
   return buffer & get_buffer_size_mask()
 
+## Pushes a new [bool] [param state] into [member buffer], shifting all other values.
 func push_state(state: bool) -> void:
   buffer <<= 1
   if state:
     buffer |= 1
 
+## Fills all bits of [member buffer] with the given [bool] [param state].
 func fill_state(state: bool) -> void:
   if state:
     buffer = ~0
