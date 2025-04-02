@@ -204,3 +204,33 @@ func clear_input_buffers() -> void:
 ## Useful for returning control to the player (eg: after a cutscene or screen transition)
 func clear_coyote_time() -> void:
   input_coyote_time.fill_state(false)
+
+## Temporarily pauses, then restores input handling after a given delay[br]
+## Returns the [Signal] which will be emitted after the delay
+func pause_inputs_for(seconds: float, clear_buffers_after_restore := true) -> Signal:
+  pause_inputs = true
+  var timer := get_tree().create_timer(seconds)
+  timer.timeout.connect(set.bind(&"pause_inputs", false))
+  if clear_buffers_after_restore:
+    timer.timeout.connect(clear_input_buffers)
+  return timer.timeout
+
+## Temporarily pauses, then restores physics after a given delay[br]
+## Returns the [Signal] which will be emitted after the delay
+func pause_physics_for(seconds: float) -> Signal:
+  pause_physics = true
+  var timer := get_tree().create_timer(seconds)
+  timer.timeout.connect(set.bind(&"pause_physics", false))
+  return timer.timeout
+
+## Temporarily pauses, then restores input handling and physics after a given delay[br]
+## Returns the [Signal] which will be emitted after the delay
+func pause_inputs_and_physics_for(seconds: float, clear_input_buffers_after_restore := true) -> Signal:
+  pause_physics = true
+  pause_inputs = true
+  var timer := get_tree().create_timer(seconds)
+  timer.timeout.connect(set.bind(&"pause_inputs", false))
+  timer.timeout.connect(set.bind(&"pause_physics", false))
+  if clear_input_buffers_after_restore:
+    timer.timeout.connect(clear_input_buffers)
+  return timer.timeout
