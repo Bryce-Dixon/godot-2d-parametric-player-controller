@@ -3,14 +3,6 @@ class_name ParametricPlayerController2D extends CharacterBody2D
 
 static var current: ParametricPlayerController2D
 
-## Emitted when the character goes from an aerial state to a grounded state
-signal landed
-## Emitted when the character goes from an grounded state to a aerial state by jumping
-signal jumped
-## Emitted when the character begins falling (their vertical velocity transitioned from up or neutral to down)
-signal started_falling
-## Emitted when the character has reached their max falling speed
-signal reached_terminal_velocity
 ## Emitted when the character begins accelerating horizontally
 signal started_accelerating_horizontally
 ## Emitted when the character begins decelerating horizontally
@@ -19,6 +11,18 @@ signal started_decelerating_horizontally
 signal started_moving_horizontally
 ## Emitted when the character stops moving horizontally
 signal stopped_moving_horizontally
+## Emitted when the character goes from moving right to moving left
+signal faced_left
+## Emitted when the character goes from moving left to moving right
+signal faced_right
+## Emitted when the character goes from an aerial state to a grounded state
+signal landed
+## Emitted when the character goes from an grounded state to a aerial state by jumping
+signal jumped
+## Emitted when the character begins falling (their vertical velocity transitioned from up or neutral to down)
+signal started_falling
+## Emitted when the character has reached their max falling speed
+signal reached_terminal_velocity
 ## Emitted when a collision occurs
 signal collided(collision: KinematicCollision2D)
 
@@ -27,6 +31,13 @@ var shape: CollisionShape2D:
     if not is_instance_valid(shape):
       shape = get_node_or_null(^"CollisionShape2D")
     return shape
+
+var facing_right := true
+var facing_left: bool:
+  get:
+    return not facing_right
+  set(value):
+    facing_right = not value
 
 @export_group("Collider", "collider_")
 @export var collider_radius := 10.0:
@@ -137,6 +148,12 @@ func _physics_process(delta: float) -> void:
       goal_horizontal_velocity,
       delta * _get_horizontal_acceleration()
     )
+    if velocity.x > 0.1 and facing_left:
+      facing_right = true
+      faced_right.emit()
+    elif velocity.x < 0.1 and facing_right:
+      facing_left = true
+      faced_left.emit()
     if was_moving_horizontally:
       if absf(velocity.x) < 0.1:
         stopped_moving_horizontally.emit()
