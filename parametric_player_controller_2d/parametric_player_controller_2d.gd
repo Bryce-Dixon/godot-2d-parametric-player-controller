@@ -40,10 +40,13 @@ var shape: CollisionShape2D:
   get:
     return shape.shape.height
 
+## Replace this from code under different situations to enable different movement styles (eg: walking vs running vs crouched)
 @export var movement_data := ParametricPlayerController2DMovementData.new()
 var goal_horizontal_velocity: float
 ## Can be overridden to specify custom acceleration behavior (eg: dashing)
 func _get_horizontal_acceleration() -> float:
+  if pause_physics:
+    return 0.0
   if is_decelerating_horizontally():
     if is_on_floor():
       return movement_data.deceleration
@@ -52,18 +55,24 @@ func _get_horizontal_acceleration() -> float:
     return movement_data.acceleration
   return movement_data.acceleration * movement_data.aerial_acceleration_ratio
 
+## Returns [code]true[/code] if the player's horizontal velocity magnitude is increasing
 func is_accelerating_horizontally() -> bool:
   return (
-    sign(velocity.x) == sign(goal_horizontal_velocity)
+    not pause_physics
+    and sign(velocity.x) == sign(goal_horizontal_velocity)
     and absf(goal_horizontal_velocity) > 0.01
     and absf(goal_horizontal_velocity) > absf(velocity.x)
   )
 
+## Returns [code]true[/code] if the player's horizontal velocity magnitude is decreasing
 func is_decelerating_horizontally() -> bool:
   return (
-    absf(goal_horizontal_velocity) < 0.01
-    or sign(velocity.x) != sign(goal_horizontal_velocity)
-    or absf(goal_horizontal_velocity) < absf(velocity.x)
+    not pause_physics
+    and (
+      absf(goal_horizontal_velocity) < 0.01
+      or sign(velocity.x) != sign(goal_horizontal_velocity)
+      or absf(goal_horizontal_velocity) < absf(velocity.x)
+    )
   )
 
 @export_group("Inputs", "input_")
@@ -75,7 +84,8 @@ func is_decelerating_horizontally() -> bool:
 ## Arbitrary list of input actions which will be kept up to date and accessible in custom scripts
 @export var input_actions: Dictionary[StringName, ParametricPlayerController2dInputData]
 ## If set to [code]true[/code], all inputs will be ignored and will retain their current buffer states.[br]
-## Should usually be the same as [member pause_physics]
+## Should usually be the same as [member pause_physics][br]
+## If modified, it usually makes sense to call [method clear_input_buffers]
 var pause_inputs := false
 ## If set to [code]true[/code], the character will not move.[br]
 ## Should usually be the same as [member pause_inputs]
@@ -91,13 +101,11 @@ func _get_terminal_velocity() -> float:
 
 ## Can be overridden to specify custom falling behavior (eg: fast-falling while holding down)
 func _get_gravity() -> float:
+  if pause_physics:
+    return 0.0
   if not jumping and velocity.y < 0.0:
     return jump_data.get_min_height_gravity()
   return jump_data.get_max_height_gravity()
-
-func _ready() -> void:
-  if Engine.is_editor_hint():
-    return
 
 var _was_grounded := false
 var _active_slide_collisions: PackedInt64Array = []
@@ -108,11 +116,11 @@ func _physics_process(delta: float) -> void:
   var was_decelerationg_horizontally := is_decelerating_horizontally()
   if not pause_inputs:
     goal_horizontal_velocity = Input.get_axis(input_left.action_name, input_right.action_name) * movement_data.velocity
+  if is_accelerating_horizontally() and not was_accelerationg_horizontally:
+    started_accelerating_horizontally.emit()
+  if is_decelerating_horizontally() and not was_decelerationg_horizontally:
+    started_decelerating_horizontally.emit()
   if not pause_physics:
-    if is_accelerating_horizontally() and not was_accelerationg_horizontally:
-      started_accelerating_horizontally.emit()
-    if is_decelerating_horizontally() and not was_decelerationg_horizontally:
-      started_decelerating_horizontally.emit()
     var was_moving_horizontally := absf(velocity.x) > 0.1
     velocity.x = move_toward(
       velocity.x,
@@ -141,13 +149,13 @@ func _physics_process(delta: float) -> void:
       jumped.emit()
       input_coyote_time.fill_state(false)
   if jumping:
-    if (not pause_inputs and not input_jump.is_down()) or velocity.y >= 0.0:
+    if pause_inputs or not input_jump.is_down() or velocity.y >= 0.0:
       jumping = false
+  var was_falling := velocity.y > 0.0
+  var current_terminal_velocity := _get_terminal_velocity()
+  var was_at_terminal_velocity := velocity.y >= current_terminal_velocity
+  velocity.y = move_toward(velocity.y, current_terminal_velocity, delta * _get_gravity())
   if not pause_physics:
-    var was_falling := velocity.y > 0.0
-    var current_terminal_velocity := _get_terminal_velocity()
-    var was_at_terminal_velocity := velocity.y >= current_terminal_velocity
-    velocity.y = move_toward(velocity.y, current_terminal_velocity, delta * _get_gravity())
     var old_collisions := _active_slide_collisions.duplicate()
     if move_and_slide():
       for i: int in range(get_slide_collision_count()):
@@ -161,13 +169,23 @@ func _physics_process(delta: float) -> void:
     for old_collision: int in old_collisions:
       _active_slide_collisions.erase(old_collision)
 
-    if not was_falling and velocity.y > 0.0:
-      started_falling.emit()
-    if not was_at_terminal_velocity and velocity.y >= current_terminal_velocity:
-      reached_terminal_velocity.emit()
+  if not was_falling and velocity.y > 0.0:
+    started_falling.emit()
+  if not was_at_terminal_velocity and velocity.y >= current_terminal_velocity:
+    reached_terminal_velocity.emit()
 
+## Updates the current state for all input data.[br]
+## Should only be called by [method _physics_process] if [member pause_inputs] is [code]false[/code]
 func update_inputs() -> void:
   for input: ParametricPlayerController2dInputData in [input_left, input_right, input_jump]:
     input.update_state()
   for input: ParametricPlayerController2dInputData in input_actions.values():
     input.update_state()
+
+## Resets all input buffers as though the user hasn't pressed any of their actions for their entire duration.[br]
+## Useful for returning control to the player (eg: after a cutscene or screen transition)
+func clear_input_buffers() -> void:
+  for input: ParametricPlayerController2dInputData in [input_left, input_right, input_jump]:
+    input.buffer.fill_state(false)
+  for input: ParametricPlayerController2dInputData in input_actions.values():
+    input.buffer.fill_state(false)
