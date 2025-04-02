@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://e8fh33bpu2o7"]
+[gd_scene load_steps=9 format=3 uid="uid://e8fh33bpu2o7"]
 
 [ext_resource type="PackedScene" uid="uid://ccd2oam5mf8u5" path="res://parametric_player_controller_2d/parametric_player_controller_2d.scn" id="1_rtm4w"]
 [ext_resource type="Script" uid="uid://k3rrvnuvbisk" path="res://parametric_player_controller_2d/movement_data.gd" id="2_6h6fy"]
@@ -24,6 +24,9 @@ metadata/_custom_type_script = "uid://c7anptjcggiri"
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_rtm4w"]
 size = Vector2(1000, 64)
 
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ftet8"]
+size = Vector2(200, 64)
+
 [node name="TestScene" type="Node2D"]
 
 [node name="Player" parent="." instance=ExtResource("1_rtm4w")]
@@ -31,9 +34,6 @@ position = Vector2(549, 440)
 movement_data = SubResource("Resource_0hlh3")
 jump_data = SubResource("Resource_6h6fy")
 terminal_velocity = 480.0
-input_left_action_name = &"player_left"
-input_right_action_name = &"player_right"
-input_jump_action_name = &"player_jump"
 
 [node name="Icon" type="Sprite2D" parent="Player"]
 position = Vector2(-4.23193e-06, -15)
@@ -48,6 +48,15 @@ polygon = PackedVector2Array(-500, -32, 500, -32, 500, 32, -500, 32)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Ground"]
 shape = SubResource("RectangleShape2D_rtm4w")
+
+[node name="Ground2" type="StaticBody2D" parent="."]
+position = Vector2(725, 437)
+
+[node name="Polygon2D" type="Polygon2D" parent="Ground2"]
+polygon = PackedVector2Array(-100, -32, 100, -32, 100, 32, -100, 32)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Ground2"]
+shape = SubResource("RectangleShape2D_ftet8")
 
 [node name="Camera2D" type="Camera2D" parent="."]
 position = Vector2(549, 360)
