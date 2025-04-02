@@ -18,7 +18,7 @@ signal started_moving_horizontally
 ## Emitted when the character stops moving horizontally
 signal stopped_moving_horizontally
 ## Emitted when a collision occurs
-signal collided(other: CollisionObject2D)
+signal collided(collision: KinematicCollision2D)
 
 var shape: CollisionShape2D:
   get:
@@ -94,6 +94,7 @@ func _ready() -> void:
     return
 
 var _was_grounded := false
+var _active_slide_collisions: PackedInt64Array = []
 func _physics_process(delta: float) -> void:
   if Engine.is_editor_hint():
     return
@@ -139,7 +140,19 @@ func _physics_process(delta: float) -> void:
   var current_terminal_velocity := _get_terminal_velocity()
   var was_at_terminal_velocity := velocity.y >= current_terminal_velocity
   velocity.y = minf(velocity.y + delta * _get_gravity(), current_terminal_velocity)
-  move_and_slide()
+  var old_collisions := _active_slide_collisions.duplicate()
+  if move_and_slide():
+    for i: int in range(get_slide_collision_count()):
+      var collision := get_slide_collision(i)
+      var collider_id := collision.get_collider_id()
+      old_collisions.erase(collider_id)
+      if collider_id in _active_slide_collisions:
+        continue
+      _active_slide_collisions.push_back(collider_id)
+      collided.emit(collision)
+  for old_collision: int in old_collisions:
+    _active_slide_collisions.erase(old_collision)
+
   if not was_falling and velocity.y > 0.0:
     started_falling.emit()
   if not was_at_terminal_velocity and velocity.y >= current_terminal_velocity:
