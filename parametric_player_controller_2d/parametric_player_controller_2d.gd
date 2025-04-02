@@ -1,6 +1,8 @@
 @tool
 class_name ParametricPlayerController2D extends CharacterBody2D
 
+static var current: ParametricPlayerController2D
+
 ## Emitted when the character goes from an aerial state to a grounded state
 signal landed
 ## Emitted when the character goes from an grounded state to a aerial state by jumping
@@ -76,13 +78,13 @@ func is_decelerating_horizontally() -> bool:
   )
 
 @export_group("Inputs", "input_")
-@export var input_left := ParametricPlayerController2dInputData.new(&"ui_left", 1)
-@export var input_right := ParametricPlayerController2dInputData.new(&"ui_right", 1)
-@export var input_jump := ParametricPlayerController2dInputData.new(&"ui_jump", 8)
+@export var input_left := ParametricPlayerController2DInputData.new(&"ui_left", 1)
+@export var input_right := ParametricPlayerController2DInputData.new(&"ui_right", 1)
+@export var input_jump := ParametricPlayerController2DInputData.new(&"ui_jump", 8)
 ## Buffer of the character's grounded state to allow grounded-only actions (eg: jumping) to occur a short period after the player has left the ground
 @export var input_coyote_time := ParametricPlayerController2DBitBuffer.new()
 ## Arbitrary list of input actions which will be kept up to date and accessible in custom scripts
-@export var input_actions: Dictionary[StringName, ParametricPlayerController2dInputData]
+@export var input_actions: Dictionary[StringName, ParametricPlayerController2DInputData]
 ## If set to [code]true[/code], all inputs will be ignored and will retain their current buffer states.[br]
 ## Should usually be the same as [member pause_physics][br]
 ## If modified, it usually makes sense to call [method clear_input_buffers]
@@ -106,6 +108,14 @@ func _get_gravity() -> float:
   if not jumping and velocity.y < 0.0:
     return jump_data.get_min_height_gravity()
   return jump_data.get_max_height_gravity()
+
+func _ready() -> void:
+  if Engine.is_editor_hint():
+    return
+  if is_instance_valid(current):
+    push_warning("Created multiple ParametricPlayerController2D simultaneously")
+  else:
+    current = self
 
 var _was_grounded := false
 var _active_slide_collisions: PackedInt64Array = []
@@ -142,8 +152,8 @@ func _physics_process(delta: float) -> void:
     else:
       if _was_grounded:
         _was_grounded = false
-  if input_coyote_time.any_high():
-    if not pause_inputs and input_jump.was_pressed():
+  if not pause_inputs and input_coyote_time.any_high():
+    if input_jump.was_pressed():
       jumping = true
       velocity.y = jump_data.get_velocity()
       jumped.emit()
@@ -177,15 +187,20 @@ func _physics_process(delta: float) -> void:
 ## Updates the current state for all input data.[br]
 ## Should only be called by [method _physics_process] if [member pause_inputs] is [code]false[/code]
 func update_inputs() -> void:
-  for input: ParametricPlayerController2dInputData in [input_left, input_right, input_jump]:
+  for input: ParametricPlayerController2DInputData in [input_left, input_right, input_jump]:
     input.update_state()
-  for input: ParametricPlayerController2dInputData in input_actions.values():
+  for input: ParametricPlayerController2DInputData in input_actions.values():
     input.update_state()
 
 ## Resets all input buffers as though the user hasn't pressed any of their actions for their entire duration.[br]
 ## Useful for returning control to the player (eg: after a cutscene or screen transition)
 func clear_input_buffers() -> void:
-  for input: ParametricPlayerController2dInputData in [input_left, input_right, input_jump]:
+  for input: ParametricPlayerController2DInputData in [input_left, input_right, input_jump]:
     input.buffer.fill_state(false)
-  for input: ParametricPlayerController2dInputData in input_actions.values():
+  for input: ParametricPlayerController2DInputData in input_actions.values():
     input.buffer.fill_state(false)
+
+## Resets coyote time buffers as though the user hasn't touched the ground for its entire duration.[br]
+## Useful for returning control to the player (eg: after a cutscene or screen transition)
+func clear_coyote_time() -> void:
+  input_coyote_time.fill_state(false)

@@ -1,5 +1,5 @@
 @tool
-class_name ParametricPlayerController2dInputData extends Resource
+class_name ParametricPlayerController2DInputData extends Resource
 
 var action_name := &""
 ## How many physics frames of input to allow the user to "buffer" inputs[br]
@@ -12,6 +12,13 @@ var buffer := ParametricPlayerController2DBitBuffer.new():
 func _init(action := &"", buffer_size := 4) -> void:
   buffer.buffer_size = buffer_size
   action_name = action
+
+func _to_string() -> String:
+  if was_pressed():
+    return '[&"%s"; %s; Pressed]' % [action_name, buffer.get_buffer_string()]
+  if is_down():
+    return '[&"%s"; %s; Held]' % [action_name, buffer.get_buffer_string()]
+  return '[&"%s"; %s; Released]' % [action_name, buffer.get_buffer_string()]
 
 ## Should be called by [class ParametricPlayerController2D]
 func update_state() -> void:

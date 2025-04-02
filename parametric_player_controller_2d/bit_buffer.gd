@@ -14,6 +14,9 @@ class_name ParametricPlayerController2DBitBuffer extends Resource
 ## This is not limited to [member buffer_size]. Accessor methods within this class should be used to query data.
 var buffer: int = 0
 
+func get_buffer_string() -> String:
+  return String.num_uint64(get_masked_buffer(), 2).pad_zeros(buffer_size)
+
 func get_buffer_size_mask() -> int:
   return ~(~0 << buffer_size)
 

@@ -1,9 +1,10 @@
-[gd_scene load_steps=9 format=3 uid="uid://e8fh33bpu2o7"]
+[gd_scene load_steps=10 format=3 uid="uid://e8fh33bpu2o7"]
 
 [ext_resource type="PackedScene" uid="uid://ccd2oam5mf8u5" path="res://parametric_player_controller_2d/parametric_player_controller_2d.scn" id="1_rtm4w"]
 [ext_resource type="Script" uid="uid://k3rrvnuvbisk" path="res://parametric_player_controller_2d/movement_data.gd" id="2_6h6fy"]
 [ext_resource type="Texture2D" uid="uid://cytco0ictpgmt" path="res://icon.svg" id="3_0hlh3"]
 [ext_resource type="Script" uid="uid://c7anptjcggiri" path="res://parametric_player_controller_2d/jump_data.gd" id="3_6h6fy"]
+[ext_resource type="PackedScene" uid="uid://bhyjowd0a1833" path="res://parametric_player_controller_2d/debug_window.scn" id="5_0hlh3"]
 
 [sub_resource type="Resource" id="Resource_0hlh3"]
 script = ExtResource("2_6h6fy")
@@ -61,3 +62,8 @@ shape = SubResource("RectangleShape2D_ftet8")
 [node name="Camera2D" type="Camera2D" parent="."]
 position = Vector2(549, 360)
 zoom = Vector2(1.66, 1.66)
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="ParametricPlayerControllerDebug" parent="CanvasLayer" instance=ExtResource("5_0hlh3")]
+offset_bottom = 323.0
