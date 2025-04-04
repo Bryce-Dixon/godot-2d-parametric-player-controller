@@ -236,7 +236,10 @@ var _last_jump_data: ParametricPlatformerController2DJumpData:
 @export_flags_2d_physics var wall_jump_collision_mask: int = collision_mask:
   set(value):
     wall_jump_collision_mask = value
-    _update_collider_shapes()
+    if left_wall_sensor:
+      left_wall_sensor.collision_mask = wall_jump_collision_mask
+    if right_wall_sensor:
+      right_wall_sensor.collision_mask = wall_jump_collision_mask
 ## Internal use only; holds the last collided wall's normal
 var _last_wall_jump_normal: Vector2
 
@@ -256,6 +259,9 @@ var aerial_jump_index := 0
 ## Maximum falling speed.[br]
 ## Instead of modifying this from another script, [method _get_terminal_velocity] should be overridden instead so the "default" value can be retained.
 @export var terminal_velocity := 120.0
+## If [code]true[/code], vertical velocity will be clamped to [member terminal_velocity] rather than smoothly lowering to it.[br]
+## Improves responsiveness and player control, but also increases jerkiness.
+@export var clamp_terminal_velocity := false
 ## Can be overridden to specify custom falling behavior (eg: fast-falling while holding down).
 func _get_terminal_velocity() -> float:
   if is_wall_sliding():
@@ -268,6 +274,9 @@ func _get_terminal_velocity() -> float:
 ## If [code]0.5[/code], the character will have half the normal terminal velocity while sliding on walls.[br]
 ## If [code]0.0[/code], the character will not fall while sliding on a wall.
 @export var wall_sliding_terminal_velocity_ratio := 1.0
+## If [code]true[/code], vertical velocity will be clamped to [member terminal_velocity] rather than smoothly lowering to it.[br]
+## Improves responsiveness and player control, but also increases jerkiness.
+@export var wall_sliding_clamp_terminal_velocity := true
 
 ## Can be overridden to specify custom falling behavior (eg: fast-falling while holding down).
 func _get_gravity() -> float:
@@ -285,17 +294,12 @@ func _ready() -> void:
   else:
     current = self
   _update_collider_shapes()
-  if (collision_layer & collision_mask) != 0:
+  left_wall_sensor.collision_layer = collision_layer
+  right_wall_sensor.collision_layer = collision_layer
+  if (collision_layer & wall_jump_collision_mask) != 0:
     push_error("Player controller's collision_layer and collision_mask overlap in some way. This will prevent wall detection (and thus wall jumping) from working. Make sure the player character has their own collision layer which is unique to everything they can collide with.")
-    left_wall_sensor.collision_layer = 0
-    right_wall_sensor.collision_layer = 0
-    left_wall_sensor.collision_mask = 0
-    right_wall_sensor.collision_mask = 0
-  else:
-    left_wall_sensor.collision_layer = collision_layer
-    right_wall_sensor.collision_layer = collision_layer
-    left_wall_sensor.collision_mask = collision_mask
-    right_wall_sensor.collision_mask = collision_mask
+  left_wall_sensor.collision_mask = wall_jump_collision_mask
+  right_wall_sensor.collision_mask = wall_jump_collision_mask
   if spawn_grounded:
     var raycast := RayCast2D.new()
     raycast.collision_mask = collision_mask
@@ -395,7 +399,17 @@ func _physics_process(delta: float) -> void:
     )
     var current_terminal_velocity := _get_terminal_velocity()
     var was_at_terminal_velocity := is_at_terminal_velocity(current_terminal_velocity)
-    velocity.y = move_toward(velocity.y, current_terminal_velocity, delta * _get_gravity())
+    if (
+      was_at_terminal_velocity
+      and (
+        wall_sliding_clamp_terminal_velocity
+        if is_wall_sliding() else
+        clamp_terminal_velocity
+      )
+    ):
+      velocity.y = current_terminal_velocity
+    else:
+      velocity.y = move_toward(velocity.y, current_terminal_velocity, delta * _get_gravity())
     var old_collisions := _active_slide_collisions.duplicate()
     if move_and_slide():
       for i: int in range(get_slide_collision_count()):

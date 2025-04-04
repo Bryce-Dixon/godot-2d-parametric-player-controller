@@ -14,12 +14,12 @@ velocity = 200.0
 acceleration_time = 0.25
 aerial_acceleration_ratio = 0.75
 deceleration_time = 0.1
-aerial_deceleration_ratio = 0.75
+aerial_deceleration_ratio = 0.5
 metadata/_custom_type_script = "uid://k3rrvnuvbisk"
 
 [sub_resource type="Resource" id="Resource_5h6yq"]
 script = ExtResource("3_q6nmg")
-buffer_size = 4
+buffer_size = 8
 
 [sub_resource type="Resource" id="Resource_wgfen"]
 script = ExtResource("3_5h6yq")
@@ -65,7 +65,6 @@ input_actions = Dictionary[StringName, ExtResource("3_5h6yq")]({
 jump_data = SubResource("Resource_6h6fy")
 aerial_jump_data = Array[ExtResource("4_spyn2")]([])
 wall_jump_data = SubResource("Resource_8hwyn")
-wall_jump_horizontal_velocity_ratio = 0.5
 wall_jump_rising_ratio_to_apply_horizontal_velocity = 0.67
 terminal_velocity = 480.0
 wall_sliding_terminal_velocity_ratio = 0.1
