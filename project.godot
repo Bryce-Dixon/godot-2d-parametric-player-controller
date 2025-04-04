@@ -66,3 +66,11 @@ player_down={
 , Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":-1,"axis":1,"axis_value":1.0,"script":null)
 ]
 }
+
+[layer_names]
+
+2d_physics/layer_1="player"
+2d_physics/layer_2="terrain"
+2d_physics/layer_3="item"
+2d_physics/layer_4="interactable"
+2d_physics/layer_5="enemy"

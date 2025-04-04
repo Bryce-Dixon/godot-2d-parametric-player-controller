@@ -1,8 +1,9 @@
-[gd_scene load_steps=14 format=3 uid="uid://e8fh33bpu2o7"]
+[gd_scene load_steps=17 format=3 uid="uid://e8fh33bpu2o7"]
 
 [ext_resource type="PackedScene" uid="uid://ccd2oam5mf8u5" path="res://parametric_platformer_controller_2d/player_controller.scn" id="1_8hwyn"]
 [ext_resource type="Script" uid="uid://k3rrvnuvbisk" path="res://parametric_platformer_controller_2d/movement_data.gd" id="2_q6nmg"]
 [ext_resource type="Script" uid="uid://mpwnqgxga1qw" path="res://parametric_platformer_controller_2d/input_data.gd" id="3_5h6yq"]
+[ext_resource type="Script" uid="uid://oakrkcbvpu3j" path="res://parametric_platformer_controller_2d/bit_buffer.gd" id="3_q6nmg"]
 [ext_resource type="Script" uid="uid://c7anptjcggiri" path="res://parametric_platformer_controller_2d/jump_data.gd" id="4_spyn2"]
 [ext_resource type="Texture2D" uid="uid://cytco0ictpgmt" path="res://icon.svg" id="5_80kpy"]
 [ext_resource type="PackedScene" uid="uid://bhyjowd0a1833" path="res://parametric_platformer_controller_2d/debug_window.scn" id="6_c5khc"]
@@ -15,6 +16,10 @@ aerial_acceleration_ratio = 0.75
 deceleration_time = 0.1
 aerial_deceleration_ratio = 0.75
 metadata/_custom_type_script = "uid://k3rrvnuvbisk"
+
+[sub_resource type="Resource" id="Resource_5h6yq"]
+script = ExtResource("3_q6nmg")
+buffer_size = 4
 
 [sub_resource type="Resource" id="Resource_wgfen"]
 script = ExtResource("3_5h6yq")
@@ -43,6 +48,8 @@ point_count = 2
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_rtm4w"]
 size = Vector2(1000, 64)
 
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_8hwyn"]
+
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ftet8"]
 size = Vector2(200, 64)
 
@@ -51,13 +58,17 @@ size = Vector2(200, 64)
 [node name="Player" parent="." instance=ExtResource("1_8hwyn")]
 position = Vector2(549, 440)
 movement_data = SubResource("Resource_0hlh3")
+input_floor_coyote_time = SubResource("Resource_5h6yq")
 input_actions = Dictionary[StringName, ExtResource("3_5h6yq")]({
 &"dash": SubResource("Resource_wgfen")
 })
 jump_data = SubResource("Resource_6h6fy")
 aerial_jump_data = Array[ExtResource("4_spyn2")]([])
 wall_jump_data = SubResource("Resource_8hwyn")
+wall_jump_horizontal_velocity_ratio = 0.5
+wall_jump_rising_ratio_to_apply_horizontal_velocity = 0.67
 terminal_velocity = 480.0
+wall_sliding_terminal_velocity_ratio = 0.1
 
 [node name="Icon" type="Sprite2D" parent="Player"]
 position = Vector2(-4.23193e-06, -15)
@@ -72,6 +83,8 @@ end_cap_mode = 2
 
 [node name="Ground" type="StaticBody2D" parent="."]
 position = Vector2(575, 500)
+collision_layer = 2
+collision_mask = 23
 
 [node name="Polygon2D" type="Polygon2D" parent="Ground"]
 polygon = PackedVector2Array(-500, -32, 500, -32, 500, 32, -500, 32)
@@ -81,6 +94,9 @@ shape = SubResource("RectangleShape2D_rtm4w")
 
 [node name="Ground2" type="StaticBody2D" parent="."]
 position = Vector2(725, 437)
+collision_layer = 2
+collision_mask = 23
+physics_material_override = SubResource("PhysicsMaterial_8hwyn")
 
 [node name="Polygon2D" type="Polygon2D" parent="Ground2"]
 polygon = PackedVector2Array(-100, -32, 100, -32, 100, 32, -100, 32)

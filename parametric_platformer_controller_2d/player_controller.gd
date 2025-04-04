@@ -7,41 +7,69 @@ class_name ParametricPlatformerController2D extends CharacterBody2D
 ## Will automatically be set by [method _ready]
 static var current: ParametricPlatformerController2D
 
-## Emitted when the character begins accelerating horizontally
+## Emitted when the character begins accelerating horizontally.
 signal started_accelerating_horizontally
-## Emitted when the character begins decelerating horizontally
+## Emitted when the character begins decelerating horizontally.
 signal started_decelerating_horizontally
-## Emitted when the character begins moving horizontally
+## Emitted when the character begins moving horizontally.
 signal started_moving_horizontally
-## Emitted when the character stops moving horizontally
+## Emitted when the character stops moving horizontally.
 signal stopped_moving_horizontally
-## Emitted when the character goes from moving right to moving left
+## Emitted when the character goes from moving right to moving left.
 signal faced_left
-## Emitted when the character goes from moving left to moving right
+## Emitted when the character goes from moving left to moving right.
 signal faced_right
-## Emitted when the character goes from an aerial state to a grounded state
+## Emitted when the character goes from an aerial state to a grounded state.
 signal landed
-## Emitted when the character jumps (regardless of type)
+## Emitted when the character jumps (regardless of type).
 signal jumped
-## Emitted when the character jumps while grounded
+## Emitted when the character jumps while grounded.
 signal grounded_jump
-## Emitted when the character jumps while in the air
+## Emitted when the character jumps while in the air.
 signal aerial_jump(index: int)
-## Emitted when the character jumps while against a wall, but not grounded
+## Emitted when the character jumps while against a wall, but not grounded.
 signal wall_jump
-## Emitted when the character begins falling (their vertical velocity transitioned from up or neutral to down)
+## Emitted when the character begins falling (their vertical velocity transitioned from up or neutral to down).
 signal started_falling
-## Emitted when the character has reached their max falling speed
+## Emitted when the character has reached their max falling speed.
 signal reached_terminal_velocity
-## Emitted when a collision occurs
+## Emitted when a collision occurs.
 signal collided(collision: KinematicCollision2D)
 
-## Cached accessor for the [CollisionShape2D] used
+## Cached accessor for the [CollisionShape2D] used for collision.
 var shape: CollisionShape2D:
   get:
     if not is_instance_valid(shape):
       shape = get_node_or_null(^"CollisionShape2D")
     return shape
+
+## Cached accessor for the [Area2D] used for detecting if there's a wall left of the character.
+var left_wall_sensor: Area2D:
+  get:
+    if not is_instance_valid(left_wall_sensor):
+      left_wall_sensor = get_node_or_null(^"LeftWallSensor")
+    return left_wall_sensor
+
+## Cached accessor for the [Area2D] used for detecting if there's a wall right of the character.
+var right_wall_sensor: Area2D:
+  get:
+    if not is_instance_valid(right_wall_sensor):
+      right_wall_sensor = get_node_or_null(^"RightWallSensor")
+    return right_wall_sensor
+
+## Cached accessor for the [CollisionShape2D] used for detecting if there's a wall left of the character.
+var left_wall_sensor_shape: CollisionShape2D:
+  get:
+    if not is_instance_valid(left_wall_sensor_shape):
+      left_wall_sensor_shape = get_node_or_null(^"LeftWallSensor/CollisionShape2D")
+    return left_wall_sensor_shape
+
+## Cached accessor for the [CollisionShape2D] used for detecting if there's a wall right of the character.
+var right_wall_sensor_shape: CollisionShape2D:
+  get:
+    if not is_instance_valid(right_wall_sensor_shape):
+      right_wall_sensor_shape = get_node_or_null(^"RightWallSensor/CollisionShape2D")
+    return right_wall_sensor_shape
 
 ## Determines if the character is currently facing right
 var facing_right := true:
@@ -66,17 +94,53 @@ var facing_left: bool:
 @export var collider_radius := 10.0:
   set(value):
     shape.shape.radius = value
-    shape.position.y = shape.shape.height * -0.5
+    _update_collider_shapes()
   get:
     return shape.shape.radius
-## Height of the [CapsuleShape2D] used by [member shape][br]
+## Height of the [CapsuleShape2D] used by [member shape].[br]
 ## Setting this will automatically reposition [member shape] so its bottom is aligned to this node's position.
 @export var collider_height := 30.0:
   set(value):
     shape.shape.height = value
-    shape.position.y = shape.shape.height * -0.5
+    _update_collider_shapes()
   get:
     return shape.shape.height
+
+## Internal use only; updates all collider shapes to match inspector values.
+func _update_collider_shapes() -> void:
+  if not shape:
+    return
+  shape.position = Vector2(0.0, shape.shape.height * -0.5)
+  var main_shape_rectangle_height: float = shape.shape.height - shape.shape.radius * 2.0
+
+  if not left_wall_sensor or not right_wall_sensor:
+    return
+  if not left_wall_sensor_shape or not right_wall_sensor_shape:
+    return
+  left_wall_sensor.position = Vector2(-shape.shape.radius, shape.position.y)
+  var is_sideways := wall_jump_detection_thickness > main_shape_rectangle_height
+  if not is_sideways:
+    left_wall_sensor_shape.shape.radius = wall_jump_detection_thickness
+    left_wall_sensor_shape.shape.height = main_shape_rectangle_height
+    left_wall_sensor_shape.rotation = 0.0
+    left_wall_sensor_shape.position.x = 0.0
+  else:
+    left_wall_sensor_shape.shape.radius = main_shape_rectangle_height * 0.5
+    left_wall_sensor_shape.shape.height = wall_jump_detection_thickness
+    left_wall_sensor_shape.rotation = PI * 0.5
+    left_wall_sensor_shape.position.x = -left_wall_sensor_shape.shape.height * 0.5 + left_wall_sensor_shape.shape.radius
+
+  right_wall_sensor.position = Vector2(shape.shape.radius, shape.position.y)
+  right_wall_sensor_shape.shape.radius = left_wall_sensor_shape.shape.radius
+  right_wall_sensor_shape.shape.height = left_wall_sensor_shape.shape.height
+  right_wall_sensor_shape.rotation = left_wall_sensor_shape.rotation
+  right_wall_sensor_shape.position.x = -left_wall_sensor_shape.position.x
+
+  var right_wall_sensor_left_edge: float = (right_wall_sensor.position.x + right_wall_sensor_shape.position.x) - right_wall_sensor_shape.shape.radius
+  if right_wall_sensor_left_edge < -shape.shape.radius:
+    var new_thickness: float = shape.shape.radius * 2.0 - 0.01
+    push_warning("Player controller's left and right wall sensors are overlapping, which will cause wall detection issues. Shrinking wall_jump_detection_thickness from %f to %f..." % [wall_jump_detection_thickness, new_thickness])
+    wall_jump_detection_thickness = new_thickness
 
 ## If [code]true[/code], the character will teleport to the closest ground (if there is any) on [method _ready].
 @export var spawn_grounded := true
@@ -101,7 +165,7 @@ func _get_horizontal_acceleration() -> float:
 func is_accelerating_horizontally() -> bool:
   return (
     not pause_physics
-    and sign(velocity.x) == sign(goal_horizontal_velocity)
+    and signf(velocity.x) == signf(goal_horizontal_velocity)
     and absf(goal_horizontal_velocity) > 0.01
     and absf(goal_horizontal_velocity) > absf(velocity.x)
   )
@@ -112,7 +176,7 @@ func is_decelerating_horizontally() -> bool:
     not pause_physics
     and (
       absf(goal_horizontal_velocity) < 0.01
-      or sign(velocity.x) != sign(goal_horizontal_velocity)
+      or signf(velocity.x) != signf(goal_horizontal_velocity)
       or absf(goal_horizontal_velocity) < absf(velocity.x)
     )
   )
@@ -125,7 +189,7 @@ func is_decelerating_horizontally() -> bool:
 ## Input data for having the character jump.
 @export var input_jump := ParametricPlatformerController2DInputData.new(&"ui_jump", 8)
 ## Buffer of the character's grounded state to allow grounded-only actions (eg: jumping) to occur a short period after the character has left the ground.
-@export var input_coyote_time := ParametricPlatformerController2DBitBuffer.new()
+@export var input_floor_coyote_time := ParametricPlatformerController2DBitBuffer.new()
 ## Arbitrary list of input actions which will be kept up to date and accessible in custom scripts.
 @export var input_actions: Dictionary[StringName, ParametricPlatformerController2DInputData]
 ## If set to [code]true[/code], all inputs will be ignored and will retain their current buffer states.[br]
@@ -163,8 +227,19 @@ var _last_jump_data: ParametricPlatformerController2DJumpData:
 ## If [code]0.5[/code], the character will continue moving away from the wall until they are only rising at half of their wall-jump speed.[br]
 ## If [code]0.0[/code], the character will only have the horizontal velocity applied for the frame of the jump.
 @export_range(0.0, 1.0, 0.01) var wall_jump_rising_ratio_to_apply_horizontal_velocity := 1.0
+## Thickness of the [Area2D]s used to determine if there's a wall able to be jumped off of
+@export_range(0.1, 1000, 0.1, "or_greater", "hide_slider") var wall_jump_detection_thickness := 4.0:
+  set(value):
+    wall_jump_detection_thickness = value
+    _update_collider_shapes()
+## Similar to [member CollisionObject2D.collision_mask], used to determine which physics materials count as wall-jumpable surfaces
+@export_flags_2d_physics var wall_jump_collision_mask: int = collision_mask:
+  set(value):
+    wall_jump_collision_mask = value
+    _update_collider_shapes()
 ## Internal use only; holds the last collided wall's normal
 var _last_wall_jump_normal: Vector2
+
 ## Usually used only by wall jumping, but can be overridden for custom behavior involving jumping setting the character's horizontal velocity.[br]
 ## Return [code]velocity.x[/code] to leave velocity unchanged.
 func _get_jump_horizontal_velocity(_for_grounded_jump: bool, for_wall_jump: bool, _for_aerial_jump: bool) -> float:
@@ -183,7 +258,16 @@ var aerial_jump_index := 0
 @export var terminal_velocity := 120.0
 ## Can be overridden to specify custom falling behavior (eg: fast-falling while holding down).
 func _get_terminal_velocity() -> float:
+  if is_wall_sliding():
+    return terminal_velocity * wall_sliding_terminal_velocity_ratio
   return terminal_velocity
+
+@export_group("Wall Sliding", "wall_sliding_")
+## Multiplier to apply to [member terminal_velocity] while sliding on walls.[br]
+## If [code]1.0[/code], the character will not slow down while sliding on walls.[br]
+## If [code]0.5[/code], the character will have half the normal terminal velocity while sliding on walls.[br]
+## If [code]0.0[/code], the character will not fall while sliding on a wall.
+@export var wall_sliding_terminal_velocity_ratio := 1.0
 
 ## Can be overridden to specify custom falling behavior (eg: fast-falling while holding down).
 func _get_gravity() -> float:
@@ -200,6 +284,18 @@ func _ready() -> void:
     push_warning("Created multiple ParametricPlatformerController2D simultaneously")
   else:
     current = self
+  _update_collider_shapes()
+  if (collision_layer & collision_mask) != 0:
+    push_error("Player controller's collision_layer and collision_mask overlap in some way. This will prevent wall detection (and thus wall jumping) from working. Make sure the player character has their own collision layer which is unique to everything they can collide with.")
+    left_wall_sensor.collision_layer = 0
+    right_wall_sensor.collision_layer = 0
+    left_wall_sensor.collision_mask = 0
+    right_wall_sensor.collision_mask = 0
+  else:
+    left_wall_sensor.collision_layer = collision_layer
+    right_wall_sensor.collision_layer = collision_layer
+    left_wall_sensor.collision_mask = collision_mask
+    right_wall_sensor.collision_mask = collision_mask
   if spawn_grounded:
     var raycast := RayCast2D.new()
     raycast.collision_mask = collision_mask
@@ -210,6 +306,7 @@ func _ready() -> void:
       push_warning("Cannot snap to ground below (%f, %f) as no ground was found below it." % [global_position.x, global_position.y])
     else:
       global_position = raycast.get_collision_point()
+    raycast.queue_free()
 
 ## Internal use only; determines if the character was on the floor during the last [method _physics_process] call.
 var _was_grounded := false
@@ -244,7 +341,7 @@ func _physics_process(delta: float) -> void:
       started_moving_horizontally.emit()
   if not pause_inputs:
     update_inputs()
-    input_coyote_time.push_state(is_on_floor())
+    input_floor_coyote_time.push_state(is_on_floor())
     if not _was_grounded and is_grounded():
       aerial_jump_index = 0
       landed.emit()
@@ -259,9 +356,9 @@ func _physics_process(delta: float) -> void:
         _last_wall_jump_normal = Vector2.ZERO
         velocity.x = _get_jump_horizontal_velocity(true, false, false)
         grounded_jump.emit()
-      elif is_instance_valid(wall_jump_data) and is_on_wall():
+      elif is_instance_valid(wall_jump_data) and get_wall_side() != 0.0:
         _last_jump_data = wall_jump_data
-        _last_wall_jump_normal = get_wall_normal()
+        _last_wall_jump_normal = Vector2(-get_wall_side(), 0.0)
         velocity.x = _get_jump_horizontal_velocity(false, true, false)
         wall_jump.emit()
       else:
@@ -279,7 +376,11 @@ func _physics_process(delta: float) -> void:
       ):
         _last_wall_jump_normal = Vector2.ZERO
       else:
-        velocity.x = _get_jump_horizontal_velocity(false, true, false)
+        var jump_velocity := _get_jump_horizontal_velocity(false, true, false)
+        if jump_velocity < 0.0:
+          velocity.x = minf(jump_velocity, velocity.x)
+        else:
+          velocity.x = maxf(jump_velocity, velocity.x)
   if _jumping and (
     pause_inputs
     or not input_jump.is_down()
@@ -287,6 +388,11 @@ func _physics_process(delta: float) -> void:
     _jumping = false
   if not pause_physics:
     var was_falling := is_falling()
+    _is_wall_sliding = (
+      is_on_wall()
+      and signf(get_wall_normal().x) != signf(velocity.x)
+      and not is_zero_approx(velocity.x)
+    )
     var current_terminal_velocity := _get_terminal_velocity()
     var was_at_terminal_velocity := is_at_terminal_velocity(current_terminal_velocity)
     velocity.y = move_toward(velocity.y, current_terminal_velocity, delta * _get_gravity())
@@ -327,7 +433,7 @@ func clear_input_buffers() -> void:
 ## Resets coyote time buffers as though the user hasn't touched the ground for its entire duration.[br]
 ## Useful for returning control to the player (eg: after a cutscene or screen transition)
 func clear_coyote_time() -> void:
-  input_coyote_time.fill_state(false)
+  input_floor_coyote_time.fill_state(false)
 
 ## Temporarily pauses, then restores input handling after a given delay[br]
 ## Returns the [Signal] which will be emitted after the delay
@@ -359,10 +465,10 @@ func pause_inputs_and_physics_for(seconds: float, clear_input_buffers_after_rest
     timer.timeout.connect(clear_input_buffers)
   return timer.timeout
 
-## Returns [code]true[/code] if the character is grounded according to [member input_coyote_time].[br]
+## Returns [code]true[/code] if the character is grounded according to [member input_floor_coyote_time].[br]
 ## Should be preferred over [method CharacterBody2D.is_on_floor].
 func is_grounded(use_coyote_time := false) -> bool:
-  return input_coyote_time.any_high() if use_coyote_time else input_coyote_time.is_high()
+  return input_floor_coyote_time.any_high() if use_coyote_time else input_floor_coyote_time.is_high()
 
 ## Returns [code]true[/code] if the character is rising from a jump.[br]
 ## See also: [method is_jumping], [method is_rising], and [method is_falling]
@@ -401,6 +507,20 @@ func can_jump() -> bool:
     and (
       is_grounded(true)
       or aerial_jump_index < aerial_jump_data.size()
-      or (is_instance_valid(wall_jump_data) and is_on_wall())
+      or (is_instance_valid(wall_jump_data) and get_wall_side() != 0.0)
     )
   )
+
+## Returns [code]-1[/code] if there is a wall only on the character's left.[br]
+## Returns [code]1[/code] if there is a wall only on the character's right.[br]
+## Returns [code]0[/code] if there is a wall on neither or both sides.
+func get_wall_side() -> float:
+  var left_detection := -1.0 if left_wall_sensor.get_overlapping_bodies().size() > 0 else 0.0
+  var right_detection := 1.0 if right_wall_sensor.get_overlapping_bodies().size() > 0 else 0.0
+  return left_detection + right_detection
+
+## Internal use only; see [method is_wall_sliding].
+var _is_wall_sliding := false
+## Returns [code]true[/code] if the character is sliding on a wall.
+func is_wall_sliding() -> bool:
+  return _is_wall_sliding
