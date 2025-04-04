@@ -1,5 +1,5 @@
 ## Contains a history of [bool] state values packed into a 64-bit integer
-class_name ParametricPlayerController2DBitBuffer extends Resource
+class_name ParametricPlatformerController2DBitBuffer extends Resource
 
 ## How many frames to "buffer" a state.
 @export_range(1, 64) var buffer_size := 4 :

@@ -1,6 +1,6 @@
-## Physics data [ParametricPlayerController2D] uses for moving horizontally.[br]
+## Physics data [ParametricPlatformerController2D] uses for moving horizontally.[br]
 ## Exposes values relevant to the player experience to the inspector which are used to derive the less intuitive physics-facing values.
-class_name ParametricPlayerController2DMovementData extends Resource
+class_name ParametricPlatformerController2DMovementData extends Resource
 
 ## Units per second.
 @export_range(0.0, 10_000.0, 0.01, "hide_slider", "or_greater") var velocity := 20.0
@@ -13,7 +13,7 @@ var acceleration: float:
   get:
     return velocity / acceleration_time
   set(_value):
-    push_warning("ParametricPlayerController2DMovementData.acceleration cannot be set directly")
+    push_warning("ParametricPlatformerController2DMovementData.acceleration cannot be set directly")
 
 ## Multiplier on the acceleration when the character is in the air.[br]
 ## Lower to give the character more sluggish response when airborn.
@@ -28,7 +28,7 @@ var deceleration: float:
   get:
     return velocity / deceleration_time
   set(_value):
-    push_warning("ParametricPlayerController2DMovementData.deceleration cannot be set directly")
+    push_warning("ParametricPlatformerController2DMovementData.deceleration cannot be set directly")
 
 ## Multiplier on the deceleration when the character is in the air.[br]
 ## Lower to give the character more sluggish response when airborn.[br]

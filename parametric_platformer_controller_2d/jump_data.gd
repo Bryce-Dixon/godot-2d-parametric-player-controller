@@ -1,6 +1,6 @@
-## Physics data [ParametricPlayerController2D] uses for jumping.[br]
+## Physics data [ParametricPlatformerController2D] uses for jumping.[br]
 ## Exposes values relevant to the player experience to the inspector which are used to derive the less intuitive physics-facing values.
-class_name ParametricPlayerController2DJumpData extends Resource
+class_name ParametricPlatformerController2DJumpData extends Resource
 
 ## Height to reach after pressing [member input_jump_action_name] for one frame
 @export var min_height := 40.0:

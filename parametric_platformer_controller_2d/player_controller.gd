@@ -1,11 +1,11 @@
 @tool
 ## A player controller intended for 2D platformers.[br]
 ## Allows designers to set various player-facing values which are more intuitive and better control the player experience compared to physics-facing ones.
-class_name ParametricPlayerController2D extends CharacterBody2D
+class_name ParametricPlatformerController2D extends CharacterBody2D
 
-## Allows easy access of the "current" [ParametricPlayerController2D] [Node][br]
+## Allows easy access of the "current" [ParametricPlatformerController2D] [Node][br]
 ## Will automatically be set by [method _ready]
-static var current: ParametricPlayerController2D
+static var current: ParametricPlatformerController2D
 
 ## Emitted when the character begins accelerating horizontally
 signal started_accelerating_horizontally
@@ -73,7 +73,7 @@ var facing_left: bool:
     return shape.shape.height
 
 ## Replace this from code under different situations to enable different movement styles (eg: walking vs running vs crouched)
-@export var movement_data := ParametricPlayerController2DMovementData.new()
+@export var movement_data := ParametricPlatformerController2DMovementData.new()
 ## Value that [member CharacterBody2D.velocity][code].x[/code] is currently moving toward.
 var goal_horizontal_velocity: float
 ## Can be overridden to specify custom acceleration behavior (eg: dashing)
@@ -110,15 +110,15 @@ func is_decelerating_horizontally() -> bool:
 
 @export_group("Inputs", "input_")
 ## Input data for moving the character left.
-@export var input_left := ParametricPlayerController2DInputData.new(&"ui_left", 1)
+@export var input_left := ParametricPlatformerController2DInputData.new(&"ui_left", 1)
 ## Input data for moving the character right.
-@export var input_right := ParametricPlayerController2DInputData.new(&"ui_right", 1)
+@export var input_right := ParametricPlatformerController2DInputData.new(&"ui_right", 1)
 ## Input data for having the player jump.
-@export var input_jump := ParametricPlayerController2DInputData.new(&"ui_jump", 8)
+@export var input_jump := ParametricPlatformerController2DInputData.new(&"ui_jump", 8)
 ## Buffer of the character's grounded state to allow grounded-only actions (eg: jumping) to occur a short period after the player has left the ground.
-@export var input_coyote_time := ParametricPlayerController2DBitBuffer.new()
+@export var input_coyote_time := ParametricPlatformerController2DBitBuffer.new()
 ## Arbitrary list of input actions which will be kept up to date and accessible in custom scripts.
-@export var input_actions: Dictionary[StringName, ParametricPlayerController2DInputData]
+@export var input_actions: Dictionary[StringName, ParametricPlatformerController2DInputData]
 ## If set to [code]true[/code], all inputs will be ignored and will retain their current buffer states.[br]
 ## Should usually be the same as [member pause_physics][br]
 ## If modified, it usually makes sense to call [method clear_input_buffers].
@@ -128,11 +128,11 @@ var pause_inputs := false
 var pause_physics := false
 
 ## Jump data to use when grounded.
-@export var jump_data := ParametricPlayerController2DJumpData.new()
+@export var jump_data := ParametricPlatformerController2DJumpData.new()
 ## Jump data to use when in the air (eg: double jump).[br]
 ## The first jump in the air after leaving the ground will be [code]aerial_jump_data[0][/code], the second would be [code]aerial_jump_data[1][/code], and so on.[br]
 ## This means the player will have [code]N[/code] aerial jumps where [code]N[/code] is the size of [member aerial_jump_data].
-@export var aerial_jump_data: Array[ParametricPlayerController2DJumpData]
+@export var aerial_jump_data: Array[ParametricPlatformerController2DJumpData]
 ## Internal use only; determines if the player is currently holding a jump.
 var _jumping := false
 ## Current index into [member aerial_jump_data][br]
@@ -157,7 +157,7 @@ func _ready() -> void:
   if Engine.is_editor_hint():
     return
   if is_instance_valid(current):
-    push_warning("Created multiple ParametricPlayerController2D simultaneously")
+    push_warning("Created multiple ParametricPlatformerController2D simultaneously")
   else:
     current = self
 
@@ -202,9 +202,9 @@ func _physics_process(delta: float) -> void:
   if can_jump() and input_jump.was_pressed():
     _jumping = true
     input_jump.buffer.fill_state(true)
-    if is_grounded():
+    if is_grounded(true):
       velocity.y = jump_data.get_velocity()
-      input_coyote_time.fill_state(false)
+      clear_coyote_time()
     else:
       velocity.y = aerial_jump_data[aerial_jump_index].get_velocity()
       aerial_jump_index += 1
@@ -241,17 +241,17 @@ func _physics_process(delta: float) -> void:
 ## Updates the current state for all input data.[br]
 ## Should only be called by [method _physics_process] if [member pause_inputs] is [code]false[/code]
 func update_inputs() -> void:
-  for input: ParametricPlayerController2DInputData in [input_left, input_right, input_jump]:
+  for input: ParametricPlatformerController2DInputData in [input_left, input_right, input_jump]:
     input.update_state()
-  for input: ParametricPlayerController2DInputData in input_actions.values():
+  for input: ParametricPlatformerController2DInputData in input_actions.values():
     input.update_state()
 
 ## Resets all input buffers as though the user hasn't pressed any of their actions for their entire duration.[br]
 ## Useful for returning control to the player (eg: after a cutscene or screen transition)
 func clear_input_buffers() -> void:
-  for input: ParametricPlayerController2DInputData in [input_left, input_right, input_jump]:
+  for input: ParametricPlatformerController2DInputData in [input_left, input_right, input_jump]:
     input.buffer.fill_state(false)
-  for input: ParametricPlayerController2DInputData in input_actions.values():
+  for input: ParametricPlatformerController2DInputData in input_actions.values():
     input.buffer.fill_state(false)
 
 ## Resets coyote time buffers as though the user hasn't touched the ground for its entire duration.[br]
@@ -295,12 +295,16 @@ func can_jump() -> bool:
     not pause_inputs
     and not _jumping
     and (
-      input_coyote_time.any_high()
+      is_grounded(true)
       or aerial_jump_index < aerial_jump_data.size()
     )
   )
 
-## Returns [code]true[/code] if the character is grounded according to [member input_coyote_time]'s most recent state.[br]
+## Returns [code]true[/code] if the character is grounded according to [member input_coyote_time].[br]
 ## Should be preferred over [method CharacterBody2D.is_on_floor].
-func is_grounded() -> bool:
-  return input_coyote_time.is_high()
+func is_grounded(use_coyote_time := false) -> bool:
+  return input_coyote_time.any_high() if use_coyote_time else input_coyote_time.is_high()
+
+## Returns the number of aerial jumps the character has left.
+func remaining_aerial_jump_count() -> int:
+  return aerial_jump_data.size() - aerial_jump_index

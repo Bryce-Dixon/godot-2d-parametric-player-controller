@@ -1,15 +1,15 @@
 @tool
 ## Wrapper around [InputEventAction]s which provides easier inspector functionality and input buffering.
-class_name ParametricPlayerController2DInputData extends Resource
+class_name ParametricPlatformerController2DInputData extends Resource
 
 ## Name of the action to query within the [InputMap].
 var action_name := &""
 ## How many physics frames of input to allow the user to "buffer" inputs[br]
 ## For example, if set to [code]4[/code], the player could press [member action_name] up to [code]4[/code] frames before landing to jump on the first available frame.
 ## Higher values allow for more lenient input and can feel more responsive.
-var buffer := ParametricPlayerController2DBitBuffer.new():
+var buffer := ParametricPlatformerController2DBitBuffer.new():
   set(value):
-    buffer = ParametricPlayerController2DBitBuffer.new() if value == null else value
+    buffer = ParametricPlatformerController2DBitBuffer.new() if value == null else value
 
 func _init(action := &"", buffer_size := 4) -> void:
   buffer.buffer_size = buffer_size
@@ -22,7 +22,7 @@ func _to_string() -> String:
     return '[&"%s"; %s; Held]' % [action_name, buffer.get_buffer_string()]
   return '[&"%s"; %s; Released]' % [action_name, buffer.get_buffer_string()]
 
-## Should be called by [class ParametricPlayerController2D]
+## Should be called by [class ParametricPlatformerController2D]
 func update_state() -> void:
   buffer.push_state(Input.is_action_pressed(action_name))
 
