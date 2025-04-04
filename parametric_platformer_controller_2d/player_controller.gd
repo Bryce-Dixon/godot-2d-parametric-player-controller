@@ -415,13 +415,13 @@ func _physics_process(delta: float) -> void:
       for i: int in range(get_slide_collision_count()):
         var collision := get_slide_collision(i)
         var collider_id := collision.get_collider_id()
-        old_collisions.erase(collider_id)
+        old_collisions.remove_at(old_collisions.find(collider_id))
         if collider_id in _active_slide_collisions:
           continue
         _active_slide_collisions.push_back(collider_id)
         collided.emit(collision)
     for old_collision: int in old_collisions:
-      _active_slide_collisions.erase(old_collision)
+      _active_slide_collisions.remove_at(_active_slide_collisions.find(old_collision))
 
     if not was_falling and is_falling():
       started_falling.emit()
