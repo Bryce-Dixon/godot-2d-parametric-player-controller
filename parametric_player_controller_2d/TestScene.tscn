@@ -48,7 +48,7 @@ input_actions = Dictionary[StringName, ExtResource("3_4grcb")]({
 &"dash": SubResource("Resource_wgfen")
 })
 jump_data = SubResource("Resource_6h6fy")
-aerial_jump_data = null
+aerial_jump_data = Array[ExtResource("3_6h6fy")]([SubResource("Resource_6h6fy")])
 terminal_velocity = 480.0
 
 [node name="Icon" type="Sprite2D" parent="Player"]

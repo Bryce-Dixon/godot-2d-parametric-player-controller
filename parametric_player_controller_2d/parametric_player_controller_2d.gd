@@ -195,23 +195,26 @@ func _physics_process(delta: float) -> void:
   if not pause_inputs:
     update_inputs()
     input_coyote_time.push_state(is_on_floor())
-    if input_coyote_time.is_high():
-      if not _was_grounded:
-        _was_grounded = true
-        aerial_jump_index = 0
-        landed.emit()
-    else:
-      if _was_grounded:
-        _was_grounded = false
-  if not pause_inputs and input_coyote_time.any_high():
-    if input_jump.was_pressed():
-      _jumping = true
+    if not _was_grounded and is_grounded():
+      aerial_jump_index = 0
+      landed.emit()
+    _was_grounded = is_grounded()
+  if can_jump() and input_jump.was_pressed():
+    _jumping = true
+    input_jump.buffer.fill_state(true)
+    if is_grounded():
       velocity.y = jump_data.get_velocity()
-      jumped.emit()
       input_coyote_time.fill_state(false)
-  if _jumping:
-    if pause_inputs or not input_jump.is_down() or velocity.y >= 0.0:
-      _jumping = false
+    else:
+      velocity.y = aerial_jump_data[aerial_jump_index].get_velocity()
+      aerial_jump_index += 1
+    jumped.emit()
+  if _jumping and (
+    pause_inputs
+    or not input_jump.is_down()
+    or velocity.y >= 0.0
+  ):
+    _jumping = false
   var was_falling := velocity.y > 0.0
   var current_terminal_velocity := _get_terminal_velocity()
   var was_at_terminal_velocity := velocity.y >= current_terminal_velocity
@@ -285,3 +288,19 @@ func pause_inputs_and_physics_for(seconds: float, clear_input_buffers_after_rest
   if clear_input_buffers_after_restore:
     timer.timeout.connect(clear_input_buffers)
   return timer.timeout
+
+## Returns [code]true[/code] if the character in a state where jumping is permitted.
+func can_jump() -> bool:
+  return (
+    not pause_inputs
+    and not _jumping
+    and (
+      input_coyote_time.any_high()
+      or aerial_jump_index < aerial_jump_data.size()
+    )
+  )
+
+## Returns [code]true[/code] if the character is grounded according to [member input_coyote_time]'s most recent state.[br]
+## Should be preferred over [method CharacterBody2D.is_on_floor].
+func is_grounded() -> bool:
+  return input_coyote_time.is_high()
