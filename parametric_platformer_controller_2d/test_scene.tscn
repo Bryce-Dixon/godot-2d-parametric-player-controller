@@ -1,14 +1,14 @@
 [gd_scene load_steps=13 format=3 uid="uid://e8fh33bpu2o7"]
 
-[ext_resource type="PackedScene" uid="uid://ccd2oam5mf8u5" path="res://parametric_platformer_controller_2d/player_controller.scn" id="1_rtm4w"]
-[ext_resource type="Script" uid="uid://k3rrvnuvbisk" path="res://parametric_platformer_controller_2d/movement_data.gd" id="2_6h6fy"]
-[ext_resource type="Texture2D" uid="uid://cytco0ictpgmt" path="res://icon.svg" id="3_0hlh3"]
-[ext_resource type="Script" uid="uid://mpwnqgxga1qw" path="res://parametric_platformer_controller_2d/input_data.gd" id="3_4grcb"]
-[ext_resource type="Script" uid="uid://c7anptjcggiri" path="res://parametric_platformer_controller_2d/jump_data.gd" id="3_6h6fy"]
-[ext_resource type="PackedScene" uid="uid://bhyjowd0a1833" path="res://parametric_platformer_controller_2d/debug_window.scn" id="5_0hlh3"]
+[ext_resource type="PackedScene" uid="uid://ccd2oam5mf8u5" path="res://parametric_platformer_controller_2d/player_controller.scn" id="1_8hwyn"]
+[ext_resource type="Script" uid="uid://k3rrvnuvbisk" path="res://parametric_platformer_controller_2d/movement_data.gd" id="2_q6nmg"]
+[ext_resource type="Script" uid="uid://mpwnqgxga1qw" path="res://parametric_platformer_controller_2d/input_data.gd" id="3_5h6yq"]
+[ext_resource type="Script" uid="uid://c7anptjcggiri" path="res://parametric_platformer_controller_2d/jump_data.gd" id="4_spyn2"]
+[ext_resource type="Texture2D" uid="uid://cytco0ictpgmt" path="res://icon.svg" id="5_80kpy"]
+[ext_resource type="PackedScene" uid="uid://bhyjowd0a1833" path="res://parametric_platformer_controller_2d/debug_window.scn" id="6_c5khc"]
 
 [sub_resource type="Resource" id="Resource_0hlh3"]
-script = ExtResource("2_6h6fy")
+script = ExtResource("2_q6nmg")
 velocity = 200.0
 acceleration_time = 0.25
 aerial_acceleration_ratio = 0.75
@@ -17,13 +17,13 @@ aerial_deceleration_ratio = 0.75
 metadata/_custom_type_script = "uid://k3rrvnuvbisk"
 
 [sub_resource type="Resource" id="Resource_wgfen"]
-script = ExtResource("3_4grcb")
+script = ExtResource("3_5h6yq")
 action_name = &"player_dash"
 buffer_window = 4
 metadata/_custom_type_script = "uid://mpwnqgxga1qw"
 
 [sub_resource type="Resource" id="Resource_6h6fy"]
-script = ExtResource("3_6h6fy")
+script = ExtResource("4_spyn2")
 min_height = 20.0
 max_height = 120.0
 seconds_to_max_height = 0.5
@@ -41,20 +41,23 @@ size = Vector2(200, 64)
 
 [node name="TestScene" type="Node2D"]
 
-[node name="Player" parent="." instance=ExtResource("1_rtm4w")]
+[node name="Player" parent="." instance=ExtResource("1_8hwyn")]
 position = Vector2(549, 440)
 movement_data = SubResource("Resource_0hlh3")
-input_actions = Dictionary[StringName, ExtResource("3_4grcb")]({
+input_actions = Dictionary[StringName, ExtResource("3_5h6yq")]({
 &"dash": SubResource("Resource_wgfen")
 })
 jump_data = SubResource("Resource_6h6fy")
-aerial_jump_data = Array[ExtResource("3_6h6fy")]([SubResource("Resource_6h6fy")])
+aerial_jump_data = Array[ExtResource("4_spyn2")]([])
+wall_jump_data = SubResource("Resource_6h6fy")
+wall_jump_horizontal_velocity_ratio = null
+wall_jump_apply_horizontal_velocity_constantly_while_rising = null
 terminal_velocity = 480.0
 
 [node name="Icon" type="Sprite2D" parent="Player"]
 position = Vector2(-4.23193e-06, -15)
 scale = Vector2(0.156, 0.234)
-texture = ExtResource("3_0hlh3")
+texture = ExtResource("5_80kpy")
 
 [node name="Line2D" type="Line2D" parent="Player"]
 points = PackedVector2Array(5, -20, 15, -20)
@@ -86,7 +89,7 @@ zoom = Vector2(1.66, 1.66)
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 
-[node name="ParametricPlayerControllerDebug" parent="CanvasLayer" instance=ExtResource("5_0hlh3")]
+[node name="ParametricPlayerControllerDebug" parent="CanvasLayer" instance=ExtResource("6_c5khc")]
 offset_bottom = 323.0
 
 [connection signal="faced_left" from="Player" to="Player/Line2D" method="set" binds= [&"scale", Vector2(-1, 1)]]

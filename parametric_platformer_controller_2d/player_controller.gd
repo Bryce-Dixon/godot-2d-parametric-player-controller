@@ -21,8 +21,14 @@ signal faced_left
 signal faced_right
 ## Emitted when the character goes from an aerial state to a grounded state
 signal landed
-## Emitted when the character goes from an grounded state to a aerial state by jumping
+## Emitted when the character jumps (regardless of type)
 signal jumped
+## Emitted when the character jumps while grounded
+signal grounded_jump
+## Emitted when the character jumps while in the air
+signal aerial_jump(index: int)
+## Emitted when the character jumps while against a wall, but not grounded
+signal wall_jump
 ## Emitted when the character begins falling (their vertical velocity transitioned from up or neutral to down)
 signal started_falling
 ## Emitted when the character has reached their max falling speed
@@ -72,6 +78,9 @@ var facing_left: bool:
   get:
     return shape.shape.height
 
+## If [code]true[/code], the character will teleport to the closest ground (if there is any) on [method _ready].
+@export var spawn_grounded := true
+
 ## Replace this from code under different situations to enable different movement styles (eg: walking vs running vs crouched)
 @export var movement_data := ParametricPlatformerController2DMovementData.new()
 ## Value that [member CharacterBody2D.velocity][code].x[/code] is currently moving toward.
@@ -88,7 +97,7 @@ func _get_horizontal_acceleration() -> float:
     return movement_data.acceleration
   return movement_data.acceleration * movement_data.aerial_acceleration_ratio
 
-## Returns [code]true[/code] if the player's horizontal velocity magnitude is increasing
+## Returns [code]true[/code] if the character's horizontal velocity magnitude is increasing
 func is_accelerating_horizontally() -> bool:
   return (
     not pause_physics
@@ -97,7 +106,7 @@ func is_accelerating_horizontally() -> bool:
     and absf(goal_horizontal_velocity) > absf(velocity.x)
   )
 
-## Returns [code]true[/code] if the player's horizontal velocity magnitude is decreasing
+## Returns [code]true[/code] if the character's horizontal velocity magnitude is decreasing
 func is_decelerating_horizontally() -> bool:
   return (
     not pause_physics
@@ -113,9 +122,9 @@ func is_decelerating_horizontally() -> bool:
 @export var input_left := ParametricPlatformerController2DInputData.new(&"ui_left", 1)
 ## Input data for moving the character right.
 @export var input_right := ParametricPlatformerController2DInputData.new(&"ui_right", 1)
-## Input data for having the player jump.
+## Input data for having the character jump.
 @export var input_jump := ParametricPlatformerController2DInputData.new(&"ui_jump", 8)
-## Buffer of the character's grounded state to allow grounded-only actions (eg: jumping) to occur a short period after the player has left the ground.
+## Buffer of the character's grounded state to allow grounded-only actions (eg: jumping) to occur a short period after the character has left the ground.
 @export var input_coyote_time := ParametricPlatformerController2DBitBuffer.new()
 ## Arbitrary list of input actions which will be kept up to date and accessible in custom scripts.
 @export var input_actions: Dictionary[StringName, ParametricPlatformerController2DInputData]
@@ -129,10 +138,36 @@ var pause_physics := false
 
 ## Jump data to use when grounded.
 @export var jump_data := ParametricPlatformerController2DJumpData.new()
+## Internal use only; tracks the last jump data used to determine appropriate gravity.
+var _last_jump_data: ParametricPlatformerController2DJumpData:
+  get:
+    if not is_instance_valid(_last_jump_data):
+      _last_jump_data = jump_data
+    return _last_jump_data
 ## Jump data to use when in the air (eg: double jump).[br]
 ## The first jump in the air after leaving the ground will be [code]aerial_jump_data[0][/code], the second would be [code]aerial_jump_data[1][/code], and so on.[br]
-## This means the player will have [code]N[/code] aerial jumps where [code]N[/code] is the size of [member aerial_jump_data].
+## This means the character will have [code]N[/code] aerial jumps where [code]N[/code] is the size of [member aerial_jump_data].
 @export var aerial_jump_data: Array[ParametricPlatformerController2DJumpData]
+
+@export_group("Wall Jump", "wall_jump_")
+## Jump data to use when not grounded, but against a wall.[br]
+## If [code]null[/code], wall jumping will be disabled.
+@export var wall_jump_data: ParametricPlatformerController2DJumpData
+## Ratio of [member movement_data] speed to use away from the wall while wall jumping.[br]
+## If [code]1.0[/code], the character will immediately reach max movement speed away from the wall when wall jumping.[br]
+## If [code]0.5[/code], the character will immediately reach half of their max movement speed away from the wall when wall jumping.[br]
+## If [code]0.0[/code], the character will not gain any speed and hug the wall while wall jumping.
+@export_range(0.0, 1.0, 0.01, "or_greater") var wall_jump_horizontal_velocity_ratio := 1.0
+## If [code]true[/code], the character will constantly have the velocity determined by [member wall_jump_horizontal_velocity_ratio] applied while rising form a wall jump.[br]
+## If [code]false[/code], the character will only have that velocity applied
+@export var wall_jump_apply_horizontal_velocity_constantly_while_rising := false
+## Usually used only by wall jumping, but can be overridden for custom behavior involving jumping setting the character's horizontal velocity.[br]
+## Return [code]velocity.x[/code] to leave velocity unchanged.
+func _get_jump_horizontal_velocity(_for_grounded_jump: bool, for_wall_jump: bool, _for_aerial_jump: bool) -> float:
+  if for_wall_jump:
+    return wall_jump_horizontal_velocity_ratio * movement_data.velocity
+  return velocity.x
+
 ## Internal use only; determines if the player is currently holding a jump.
 var _jumping := false
 ## Current index into [member aerial_jump_data][br]
@@ -149,9 +184,9 @@ func _get_terminal_velocity() -> float:
 func _get_gravity() -> float:
   if pause_physics:
     return 0.0
-  if not _jumping and velocity.y < 0.0:
-    return jump_data.get_min_height_gravity()
-  return jump_data.get_max_height_gravity()
+  if is_jumping() and is_rising():
+    return _last_jump_data.get_min_height_gravity()
+  return _last_jump_data.get_max_height_gravity()
 
 func _ready() -> void:
   if Engine.is_editor_hint():
@@ -160,6 +195,16 @@ func _ready() -> void:
     push_warning("Created multiple ParametricPlatformerController2D simultaneously")
   else:
     current = self
+  if spawn_grounded:
+    var raycast := RayCast2D.new()
+    raycast.collision_mask = collision_mask
+    raycast.target_position = Vector2(0, 10_000)
+    add_child(raycast)
+    raycast.force_raycast_update()
+    if not raycast.is_colliding():
+      push_warning("Cannot snap to ground below (%f, %f) as no ground was found below it." % [global_position.x, global_position.y])
+    else:
+      global_position = raycast.get_collision_point()
 
 ## Internal use only; determines if the character was on the floor during the last [method _physics_process] call.
 var _was_grounded := false
@@ -198,26 +243,35 @@ func _physics_process(delta: float) -> void:
     if not _was_grounded and is_grounded():
       aerial_jump_index = 0
       landed.emit()
+      _last_jump_data = jump_data
     _was_grounded = is_grounded()
   if can_jump() and input_jump.was_pressed():
     _jumping = true
     input_jump.buffer.fill_state(true)
     if is_grounded(true):
-      velocity.y = jump_data.get_velocity()
       clear_coyote_time()
+      _last_jump_data = jump_data
+      velocity.x = _get_jump_horizontal_velocity(true, false, false)
+      grounded_jump.emit()
+    elif is_instance_valid(wall_jump_data) and is_on_wall():
+      _last_jump_data = wall_jump_data
+      velocity.x = _get_jump_horizontal_velocity(false, true, false)
+      wall_jump.emit()
     else:
-      velocity.y = aerial_jump_data[aerial_jump_index].get_velocity()
       aerial_jump_index += 1
+      _last_jump_data = aerial_jump_data[aerial_jump_index]
+      velocity.x = _get_jump_horizontal_velocity(false, false, true)
+      aerial_jump.emit()
+    velocity.y = _last_jump_data.get_velocity()
     jumped.emit()
   if _jumping and (
     pause_inputs
     or not input_jump.is_down()
-    or velocity.y >= 0.0
   ):
     _jumping = false
-  var was_falling := velocity.y > 0.0
+  var was_falling := is_falling()
   var current_terminal_velocity := _get_terminal_velocity()
-  var was_at_terminal_velocity := velocity.y >= current_terminal_velocity
+  var was_at_terminal_velocity := is_at_terminal_velocity(current_terminal_velocity)
   velocity.y = move_toward(velocity.y, current_terminal_velocity, delta * _get_gravity())
   if not pause_physics:
     var old_collisions := _active_slide_collisions.duplicate()
@@ -233,9 +287,9 @@ func _physics_process(delta: float) -> void:
     for old_collision: int in old_collisions:
       _active_slide_collisions.erase(old_collision)
 
-  if not was_falling and velocity.y > 0.0:
+  if not was_falling and is_falling():
     started_falling.emit()
-  if not was_at_terminal_velocity and velocity.y >= current_terminal_velocity:
+  if not was_at_terminal_velocity and is_at_terminal_velocity(current_terminal_velocity):
     reached_terminal_velocity.emit()
 
 ## Updates the current state for all input data.[br]
@@ -289,6 +343,40 @@ func pause_inputs_and_physics_for(seconds: float, clear_input_buffers_after_rest
     timer.timeout.connect(clear_input_buffers)
   return timer.timeout
 
+## Returns [code]true[/code] if the character is grounded according to [member input_coyote_time].[br]
+## Should be preferred over [method CharacterBody2D.is_on_floor].
+func is_grounded(use_coyote_time := false) -> bool:
+  return input_coyote_time.any_high() if use_coyote_time else input_coyote_time.is_high()
+
+## Returns [code]true[/code] if the character is rising from a jump.[br]
+## See also: [method is_jumping], [method is_rising], and [method is_falling]
+func is_jumping_up() -> bool:
+  return _jumping and is_rising()
+
+## Returns [code]true[/code] if the character is mid-jump, rising or falling.[br]
+## See also: [method is_jumping_up], [method is_rising], and [method is_falling]
+func is_jumping() -> bool:
+  return _jumping
+
+## Returns [code]true[/code] if the character is rising.[br]
+## See also: [method is_jumping_up], [method is_jumping], and [method is_falling]
+func is_rising() -> bool:
+  return velocity.y < 0.0
+
+## Returns [code]true[/code] if the character is falling.[br]
+## See also: [method is_jumping_up], [method is_jumping], [method is_at_terminal_velocity] and [method is_rising]
+func is_falling() -> bool:
+  return velocity.y > 0.0
+
+## Returns [code]true[/code] if the character is falling at or above terminal velocity.[br]
+## See also: [method is_falling]
+func is_at_terminal_velocity(current_terminal_velocity := _get_terminal_velocity()) -> bool:
+  return velocity.y >= current_terminal_velocity
+
+## Returns the number of aerial jumps the character has left.
+func remaining_aerial_jump_count() -> int:
+  return aerial_jump_data.size() - aerial_jump_index
+
 ## Returns [code]true[/code] if the character in a state where jumping is permitted.
 func can_jump() -> bool:
   return (
@@ -297,14 +385,6 @@ func can_jump() -> bool:
     and (
       is_grounded(true)
       or aerial_jump_index < aerial_jump_data.size()
+      or (is_instance_valid(wall_jump_data) and is_on_wall())
     )
   )
-
-## Returns [code]true[/code] if the character is grounded according to [member input_coyote_time].[br]
-## Should be preferred over [method CharacterBody2D.is_on_floor].
-func is_grounded(use_coyote_time := false) -> bool:
-  return input_coyote_time.any_high() if use_coyote_time else input_coyote_time.is_high()
-
-## Returns the number of aerial jumps the character has left.
-func remaining_aerial_jump_count() -> int:
-  return aerial_jump_data.size() - aerial_jump_index
