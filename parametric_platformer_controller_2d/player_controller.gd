@@ -158,14 +158,19 @@ var _last_jump_data: ParametricPlatformerController2DJumpData:
 ## If [code]0.5[/code], the character will immediately reach half of their max movement speed away from the wall when wall jumping.[br]
 ## If [code]0.0[/code], the character will not gain any speed and hug the wall while wall jumping.
 @export_range(0.0, 1.0, 0.01, "or_greater") var wall_jump_horizontal_velocity_ratio := 1.0
-## If [code]true[/code], the character will constantly have the velocity determined by [member wall_jump_horizontal_velocity_ratio] applied while rising form a wall jump.[br]
-## If [code]false[/code], the character will only have that velocity applied
-@export var wall_jump_apply_horizontal_velocity_constantly_while_rising := false
+## The character will constantly have the velocity determined by [member wall_jump_horizontal_velocity_ratio] applied while rising from a wall jump foor this ratio of vertical speed.[br]
+## If [code]1.0[/code], the character will continue moving away from the wall until they start falling.[br]
+## If [code]0.5[/code], the character will continue moving away from the wall until they are only rising at half of their wall-jump speed.[br]
+## If [code]0.0[/code], the character will only have the horizontal velocity applied for the frame of the jump.
+@export_range(0.0, 1.0, 0.01) var wall_jump_rising_ratio_to_apply_horizontal_velocity := 1.0
+## Internal use only; holds the last collided wall's normal
+var _last_wall_jump_normal: Vector2
 ## Usually used only by wall jumping, but can be overridden for custom behavior involving jumping setting the character's horizontal velocity.[br]
 ## Return [code]velocity.x[/code] to leave velocity unchanged.
 func _get_jump_horizontal_velocity(_for_grounded_jump: bool, for_wall_jump: bool, _for_aerial_jump: bool) -> float:
   if for_wall_jump:
-    return wall_jump_horizontal_velocity_ratio * movement_data.velocity
+    var velocity_sign := signf(_last_wall_jump_normal.x)
+    return wall_jump_horizontal_velocity_ratio * movement_data.velocity * velocity_sign
   return velocity.x
 
 ## Internal use only; determines if the player is currently holding a jump.
@@ -184,7 +189,7 @@ func _get_terminal_velocity() -> float:
 func _get_gravity() -> float:
   if pause_physics:
     return 0.0
-  if is_jumping() and is_rising():
+  if not is_jumping() and is_rising():
     return _last_jump_data.get_min_height_gravity()
   return _last_jump_data.get_max_height_gravity()
 
@@ -245,35 +250,46 @@ func _physics_process(delta: float) -> void:
       landed.emit()
       _last_jump_data = jump_data
     _was_grounded = is_grounded()
-  if can_jump() and input_jump.was_pressed():
-    _jumping = true
-    input_jump.buffer.fill_state(true)
-    if is_grounded(true):
-      clear_coyote_time()
-      _last_jump_data = jump_data
-      velocity.x = _get_jump_horizontal_velocity(true, false, false)
-      grounded_jump.emit()
-    elif is_instance_valid(wall_jump_data) and is_on_wall():
-      _last_jump_data = wall_jump_data
-      velocity.x = _get_jump_horizontal_velocity(false, true, false)
-      wall_jump.emit()
-    else:
-      aerial_jump_index += 1
-      _last_jump_data = aerial_jump_data[aerial_jump_index]
-      velocity.x = _get_jump_horizontal_velocity(false, false, true)
-      aerial_jump.emit()
-    velocity.y = _last_jump_data.get_velocity()
-    jumped.emit()
+    if can_jump() and input_jump.was_pressed():
+      _jumping = true
+      input_jump.buffer.fill_state(true)
+      if is_grounded(true):
+        clear_coyote_time()
+        _last_jump_data = jump_data
+        _last_wall_jump_normal = Vector2.ZERO
+        velocity.x = _get_jump_horizontal_velocity(true, false, false)
+        grounded_jump.emit()
+      elif is_instance_valid(wall_jump_data) and is_on_wall():
+        _last_jump_data = wall_jump_data
+        _last_wall_jump_normal = get_wall_normal()
+        velocity.x = _get_jump_horizontal_velocity(false, true, false)
+        wall_jump.emit()
+      else:
+        aerial_jump_index += 1
+        _last_jump_data = aerial_jump_data[aerial_jump_index]
+        _last_wall_jump_normal = Vector2.ZERO
+        velocity.x = _get_jump_horizontal_velocity(false, false, true)
+        aerial_jump.emit()
+      velocity.y = _last_jump_data.get_velocity()
+      jumped.emit()
+    if _last_wall_jump_normal.x != 0.0:
+      var wall_jump_rising_ratio := 1.0 - velocity.y / wall_jump_data.get_velocity()
+      if (
+        wall_jump_rising_ratio > wall_jump_rising_ratio_to_apply_horizontal_velocity
+      ):
+        _last_wall_jump_normal = Vector2.ZERO
+      else:
+        velocity.x = _get_jump_horizontal_velocity(false, true, false)
   if _jumping and (
     pause_inputs
     or not input_jump.is_down()
   ):
     _jumping = false
-  var was_falling := is_falling()
-  var current_terminal_velocity := _get_terminal_velocity()
-  var was_at_terminal_velocity := is_at_terminal_velocity(current_terminal_velocity)
-  velocity.y = move_toward(velocity.y, current_terminal_velocity, delta * _get_gravity())
   if not pause_physics:
+    var was_falling := is_falling()
+    var current_terminal_velocity := _get_terminal_velocity()
+    var was_at_terminal_velocity := is_at_terminal_velocity(current_terminal_velocity)
+    velocity.y = move_toward(velocity.y, current_terminal_velocity, delta * _get_gravity())
     var old_collisions := _active_slide_collisions.duplicate()
     if move_and_slide():
       for i: int in range(get_slide_collision_count()):
@@ -287,10 +303,10 @@ func _physics_process(delta: float) -> void:
     for old_collision: int in old_collisions:
       _active_slide_collisions.erase(old_collision)
 
-  if not was_falling and is_falling():
-    started_falling.emit()
-  if not was_at_terminal_velocity and is_at_terminal_velocity(current_terminal_velocity):
-    reached_terminal_velocity.emit()
+    if not was_falling and is_falling():
+      started_falling.emit()
+    if not was_at_terminal_velocity and is_at_terminal_velocity(current_terminal_velocity):
+      reached_terminal_velocity.emit()
 
 ## Updates the current state for all input data.[br]
 ## Should only be called by [method _physics_process] if [member pause_inputs] is [code]false[/code]

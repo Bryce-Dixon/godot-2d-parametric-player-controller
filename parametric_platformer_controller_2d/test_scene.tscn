@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3 uid="uid://e8fh33bpu2o7"]
+[gd_scene load_steps=14 format=3 uid="uid://e8fh33bpu2o7"]
 
 [ext_resource type="PackedScene" uid="uid://ccd2oam5mf8u5" path="res://parametric_platformer_controller_2d/player_controller.scn" id="1_8hwyn"]
 [ext_resource type="Script" uid="uid://k3rrvnuvbisk" path="res://parametric_platformer_controller_2d/movement_data.gd" id="2_q6nmg"]
@@ -29,6 +29,13 @@ max_height = 120.0
 seconds_to_max_height = 0.5
 metadata/_custom_type_script = "uid://c7anptjcggiri"
 
+[sub_resource type="Resource" id="Resource_8hwyn"]
+script = ExtResource("4_spyn2")
+min_height = 20.0
+max_height = 120.0
+seconds_to_max_height = 0.5
+metadata/_custom_type_script = "uid://c7anptjcggiri"
+
 [sub_resource type="Curve" id="Curve_0hlh3"]
 _data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.0967136), 0.0, 0.0, 0, 0]
 point_count = 2
@@ -49,9 +56,7 @@ input_actions = Dictionary[StringName, ExtResource("3_5h6yq")]({
 })
 jump_data = SubResource("Resource_6h6fy")
 aerial_jump_data = Array[ExtResource("4_spyn2")]([])
-wall_jump_data = SubResource("Resource_6h6fy")
-wall_jump_horizontal_velocity_ratio = null
-wall_jump_apply_horizontal_velocity_constantly_while_rising = null
+wall_jump_data = SubResource("Resource_8hwyn")
 terminal_velocity = 480.0
 
 [node name="Icon" type="Sprite2D" parent="Player"]
