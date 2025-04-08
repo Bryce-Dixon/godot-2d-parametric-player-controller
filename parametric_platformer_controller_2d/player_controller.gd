@@ -396,6 +396,7 @@ func _physics_process(delta: float) -> void:
       is_on_wall()
       and signf(get_wall_normal().x) != signf(velocity.x)
       and not is_zero_approx(velocity.x)
+      and velocity.y > 0.0
     )
     var current_terminal_velocity := _get_terminal_velocity()
     var was_at_terminal_velocity := is_at_terminal_velocity(current_terminal_velocity)
